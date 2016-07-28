@@ -78,10 +78,13 @@ Ready to contribute? Here's how to set up `psdwriter` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox::
+5. When you're done making changes, check that your changes pass flake8 and the tests::
 
     $ flake8 psdwriter tests
     $ py.test
+
+    # Generate a coverage report
+    $ py.test --cov=psdwriter --cov-report html
 
 6. Commit your changes and push your branch to GitHub::
 
