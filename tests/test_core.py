@@ -17,7 +17,7 @@ import pytest
 import traitlets as t
 
 
-from psdwriter import psdwriter
+from psdwriter import core
 from psdwriter import enums
 
 
@@ -26,7 +26,7 @@ class TestHeader(object):
         content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
-        h = psdwriter.Header.read(fd)
+        h = core.Header.read(fd)
 
         assert h.signature == b'8BPB'
         assert h.version == 2
@@ -45,14 +45,14 @@ class TestHeader(object):
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            psdwriter.Header.read(fd)
+            core.Header.read(fd)
 
     def test_header_invalid_signature(self):
         content = b'8BPX\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            psdwriter.Header.read(fd)
+            core.Header.read(fd)
 
     def test_header_invalid_reserved(self):
         content = (
@@ -60,18 +60,18 @@ class TestHeader(object):
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            psdwriter.Header.read(fd)
+            core.Header.read(fd)
 
     def test_header_invalid_width(self):
         content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\0\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(t.TraitError):
-            psdwriter.Header.read(fd)
+            core.Header.read(fd)
 
     def test_header_invalid_depth(self):
         content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x09\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(t.TraitError):
-            psdwriter.Header.read(fd)
+            core.Header.read(fd)

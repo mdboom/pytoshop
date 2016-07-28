@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-from .psdwriter import PsdFile
+from .core import PsdFile
 
 
 __author__ = 'Michael Droettboom'

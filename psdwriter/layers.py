@@ -21,10 +21,10 @@ class LayerMask(t.HasTraits):
     default_color = t.Bool(False)
     # TODO: Handle bitflags properly
     flags = t.Int()
-    user_mask_density = t.Int(min=0, max=255, allow_none=True)
-    user_mask_feather = t.Float(allow_none=True)
-    vector_mask_density = t.Int(min=0, max=255, allow_none=True)
-    vector_mask_feather = t.Float(allow_none=True)
+    user_mask_density = t.Int(None, min=0, max=255, allow_none=True)
+    user_mask_feather = t.Float(None, allow_none=True)
+    vector_mask_density = t.Int(None, min=0, max=255, allow_none=True)
+    vector_mask_feather = t.Float(None, allow_none=True)
     real_flags = t.Int()
     real_background_color = t.Bool()
     real_top = t.Int()
@@ -162,7 +162,7 @@ class BlendingRange(t.HasTraits):
     def length(self, header):
         return 4
 
-    total_length = 4
+    total_length = length
 
     @classmethod
     @trace_read
@@ -205,21 +205,16 @@ class BlendingRangePair(t.HasTraits):
 
 class BlendingRanges(t.HasTraits):
     composite_gray_blend = t.Instance(BlendingRangePair, allow_none=True)
-    channels = t.List(t.Instance(BlendingRangePair), allow_none=True)
+    channels = t.List(t.Instance(BlendingRangePair))
 
     def length(self, header):
-        length = sum(x.total_length(header) for x in self.channels)
         if self.composite_gray_blend is not None:
-            length += self.composite_gray_blend.total_length(header)
-        return length
+            return (self.composite_gray_blend.total_length(header) +
+                    sum(x.total_length(header) for x in self.channels))
+        return 0
 
     def total_length(self, header):
         return 4 + self.length(header)
-
-    @classmethod
-    def create_empty(cls, num_channels):
-        return cls(
-            channels=[BlendingRangePair() for x in range(num_channels)])
 
     @classmethod
     @trace_read
@@ -386,7 +381,7 @@ class LayerRecord(t.HasTraits):
         opacity = read_value(fd, 'B')
         clipping = bool(read_value(fd, 'B'))
         flags = read_value(fd, 'B')
-        fd.read(1)  # filler
+        fd.seek(1, 1)  # filler
 
         extra_length = read_value(fd, 'I')
         end = fd.tell() + extra_length
@@ -525,10 +520,7 @@ class LayerInfo(t.HasTraits):
 
 
 class GlobalLayerMaskInfo(t.HasTraits):
-    overlay_color_space = t.Int(0)
-    color_components = t.List(
-        t.Int(min=0, max=1 << 16),
-        min=4, max=4, default=[0, 0, 0, 0])
+    overlay_color_space = t.Bytes(min=10, max=10)
     opacity = t.Int(100, min=0, max=100)
     kind = t.Int(min=0, max=255)
 
@@ -547,33 +539,20 @@ class GlobalLayerMaskInfo(t.HasTraits):
         if length == 0:
             return cls()
 
-        def parts():
-            yield dict(overlay_color_space=read_value(fd, 'H'))
+        overlay_color_space = fd.read(10)
+        opacity = read_value(fd, 'H')
+        kind = read_value(fd, 'B')
 
-            yield dict(color_components=struct.unpack('>HHHH', fd.read(8)))
+        fd.seek(end)
 
-            yield dict(opacity=read_value(fd, 'H'))
-
-            yield dict(kind=read_value(fd, 'B'))
-
-        d = {}
-        for part in parts():
-            d.update(part)
-            if fd.tell() >= end:
-                break
-
-        if end > fd.tell():
-            fd.read(end - fd.tell())
-
-        return cls(**d)
+        return cls(
+            overlay_color_space=overlay_color_space,
+            opacity=opacity,
+            kind=kind)
 
     def write(self, fd, header):
         write_value(fd, 'I', 16)
-        write_value(fd, 'H', self.overlay_color_space)
-        if len(self.color_components):
-            fd.write(struct.pack('>HHHH', *self.color_components))
-        else:
-            fd.write(b'\0\0\0\0\0\0\0\0')
+        fd.write(self.overlay_color_space)
         write_value(fd, 'H', self.opacity)
         write_value(fd, 'B', self.kind)
         fd.write(b'\0\0\0')  # filler
