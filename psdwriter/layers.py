@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, division, unicode_literals, print_function
-
 
 import struct
 
@@ -148,7 +146,6 @@ class LayerMask(t.HasTraits):
                 write_value(fd, 'B', self.vector_mask_density)
             if self.vector_mask_feather:
                 write_value(fd, 'd', self.vector_mask_feather)
-
 
         write_value(fd, 'B', self.real_flags)
         write_default_color(self.real_background_color)
@@ -429,7 +426,8 @@ class LayerRecord(t.HasTraits):
     def write(self, fd, header):
         if len(self.channel_ids) != len(self.channel_data):
             raise ValueError(
-                "Mismatched number of channel ids ({}) and channel data ({})".format(
+                "Mismatched number of channel ids ({}) "
+                "and channel data ({})".format(
                     len(self.channel_ids), len(self.channel_data)))
 
         fd.write(struct.pack('>iiii',
@@ -528,7 +526,9 @@ class LayerInfo(t.HasTraits):
 
 class GlobalLayerMaskInfo(t.HasTraits):
     overlay_color_space = t.Int(0)
-    color_components = t.List(t.Int(min=0, max=1<<16), min=4, max=4, default=[0, 0, 0, 0])
+    color_components = t.List(
+        t.Int(min=0, max=1 << 16),
+        min=4, max=4, default=[0, 0, 0, 0])
     opacity = t.Int(100, min=0, max=100)
     kind = t.Int(min=0, max=255)
 

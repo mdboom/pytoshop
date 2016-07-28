@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, division, unicode_literals, print_function
-
 
 import traitlets as t
 
@@ -11,8 +9,7 @@ from . import enums
 from . import image_data
 from . import image_resources
 from . import layers
-from .util import BinaryStruct, read_pascal_string, write_pascal_string, \
-    read_value, write_value
+from .util import BinaryStruct
 
 
 class Header(t.HasTraits):

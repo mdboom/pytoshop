@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, division, unicode_literals, print_function
-
 import traitlets as t
 
 from .util import read_pascal_string, write_pascal_string, \

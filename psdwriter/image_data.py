@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, division, unicode_literals, print_function
-
 
 import struct
 
@@ -10,7 +8,7 @@ import traitlets as t
 
 
 from . import enums
-from .util import read_value, write_value
+from .util import write_value
 
 
 class ImageData(t.HasTraits):
