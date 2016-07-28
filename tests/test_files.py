@@ -21,5 +21,5 @@ def test_files(filename):
     with open(filename, 'rb') as fd:
         f = psdwriter.PsdFile.read(fd)
 
-    fd = io.BytesIO()
-    f.write(fd)
+        fd2 = io.BytesIO()
+        f.write(fd2)

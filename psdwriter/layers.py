@@ -10,7 +10,7 @@ import traitlets as t
 from . import enums
 from .util import read_pascal_string, write_pascal_string, \
     pascal_string_length, read_value, write_value, round_up, pad_block, \
-    trace_read, pad
+    trace_read, pad, DeferredLoad
 
 
 class LayerMask(t.HasTraits):
@@ -19,8 +19,10 @@ class LayerMask(t.HasTraits):
     bottom = t.Int()
     right = t.Int()
     default_color = t.Bool(False)
-    # TODO: Handle bitflags properly
-    flags = t.Int()
+    position_relative_to_layer = t.Bool(False)
+    layer_mask_disabled = t.Bool(False)
+    invert_layer_mask_when_blending = t.Bool(False)
+    user_mask_from_rendering_other_data = t.Bool(False)
     user_mask_density = t.Int(None, min=0, max=255, allow_none=True)
     user_mask_feather = t.Float(None, allow_none=True)
     vector_mask_density = t.Int(None, min=0, max=255, allow_none=True)
@@ -67,12 +69,11 @@ class LayerMask(t.HasTraits):
     @trace_read
     def read(cls, fd, header):
         length = read_value(fd, 'I')
-        end = fd.tell() + length
-
         d = {}
-
         if length == 0:
             return cls(**d)
+
+        end = fd.tell() + length
 
         top, left, bottom, right = struct.unpack('>iiii', fd.read(16))
         d['top'] = top
@@ -82,13 +83,17 @@ class LayerMask(t.HasTraits):
 
         d['default_color'] = bool(read_value(fd, 'B'))
 
-        d['flags'] = read_value(fd, 'B')
+        flags = read_value(fd, 'B')
+        d['position_relative_to_layer'] = bool(flags & 1)
+        d['layer_mask_disabled'] = bool(flags & 2)
+        d['invert_layer_mask_when_blending'] = bool(flags & 4)
+        d['user_mask_from_rendering_other_data'] = bool(flags & 8)
 
         if length == 20:
-            fd.seek(2, 1)
+            fd.seek(end)
             return cls(**d)
 
-        if d['flags'] & 16:
+        if flags & 16:
             mask_parameters = read_value(fd, 'B')
             if mask_parameters & 1:
                 d['user_mask_density'] = read_value(fd, 'B')
@@ -128,12 +133,20 @@ class LayerMask(t.HasTraits):
         write_rectangle(self.top, self.left, self.bottom, self.right)
         write_default_color(self.default_color)
 
+        flags = 0
+        if self.position_relative_to_layer:
+            flags |= 1
+        if self.layer_mask_disabled:
+            flags |= 2
+        if self.invert_layer_mask_when_blending:
+            flags |= 4
+        if self.user_mask_from_rendering_other_data:
+            flags |= 7
         mask_flags = self._get_mask_flags()
-
         if mask_flags:
-            self.flags |= 16
+            flags |= 16
 
-        write_value(fd, 'B', self.flags)
+        write_value(fd, 'B', flags)
 
         if mask_flags:
             write_value(fd, 'B', mask_flags)
@@ -181,8 +194,8 @@ class BlendingRange(t.HasTraits):
 
 
 class BlendingRangePair(t.HasTraits):
-    source = t.Instance(BlendingRange)
-    dest = t.Instance(BlendingRange)
+    src = t.Instance(BlendingRange)
+    dst = t.Instance(BlendingRange)
 
     def length(self, header):
         return 8
@@ -192,15 +205,15 @@ class BlendingRangePair(t.HasTraits):
     @classmethod
     @trace_read
     def read(cls, fd, header):
-        source = BlendingRange.read(fd, header)
-        dest = BlendingRange.read(fd, header)
+        src = BlendingRange.read(fd, header)
+        dst = BlendingRange.read(fd, header)
 
-        return cls(source=source,
-                   dest=dest)
+        return cls(src=src,
+                   dst=dst)
 
     def write(self, fd, header):
-        self.source.write(fd, header)
-        self.dest.write(fd, header)
+        self.src.write(fd, header)
+        self.dst.write(fd, header)
 
 
 class BlendingRanges(t.HasTraits):
@@ -209,8 +222,9 @@ class BlendingRanges(t.HasTraits):
 
     def length(self, header):
         if self.composite_gray_blend is not None:
-            return (self.composite_gray_blend.total_length(header) +
-                    sum(x.total_length(header) for x in self.channels))
+            return (
+                self.composite_gray_blend.total_length(header) +
+                sum(x.total_length(header) for x in self.channels))
         return 0
 
     def total_length(self, header):
@@ -244,12 +258,15 @@ class BlendingRanges(t.HasTraits):
             channel.write(fd, header)
 
 
-class ChannelImageData(t.HasTraits):
+class ChannelImageData(DeferredLoad, t.HasTraits):
+    def __init__(self, data, **kwargs):
+        DeferredLoad.__init__(self, data)
+        t.HasTraits.__init__(self, **kwargs)
+
     compression = t.Enum(list(enums.Compression))
-    data = t.Bytes()
 
     def length(self, header):
-        return len(self.data)
+        return self.data_length
 
     def total_length(self, header):
         return 2 + self.length(header)
@@ -258,18 +275,16 @@ class ChannelImageData(t.HasTraits):
     @trace_read
     def read(cls, fd, header, size):
         compression = read_value(fd, 'H')
-        # TODO: Defer reading
-        data = fd.read(size)
-        return cls(compression=compression, data=data)
+        data = (fd, fd.tell(), size)
+        fd.seek(size, 1)
+        return cls(data, compression=compression)
 
     def write(self, fd, header):
         write_value(fd, 'H', self.compression)
         fd.write(self.data)
 
 
-class AdditionalLayerInfo(t.HasTraits):
-    # TODO: Make an enum
-    signature = t.Enum([b'8BIM', b'8B64'])
+class TaggedBlock(t.HasTraits):
     code = t.Bytes(min=4, max=4)
     data = t.Bytes()
 
@@ -294,6 +309,9 @@ class AdditionalLayerInfo(t.HasTraits):
     @trace_read
     def read(cls, fd, header, padding=1):
         signature = fd.read(4)
+        if signature not in (b'8BIM', b'8B64'):
+            raise ValueError('Invalid signature in tagged block')
+
         code = fd.read(4)
         if header.version == 2 and code in cls._large_layer_info_codes:
             length = read_value(fd, 'Q')
@@ -303,10 +321,13 @@ class AdditionalLayerInfo(t.HasTraits):
         data = fd.read(length)
         fd.seek(padded_length - length, 1)
 
-        return cls(signature=signature, code=code, data=data)
+        return cls(code=code, data=data)
 
     def write(self, fd, header, padding=1):
-        fd.write(self.signature)
+        if header.version == 2 and self.code in self._large_layer_info_codes:
+            fd.write(b'8BIM')
+        else:
+            fd.write(b'8B64')
         fd.write(self.code)
         length = len(self.data)
         padded_length = pad(length, 2)
@@ -323,18 +344,18 @@ class LayerRecord(t.HasTraits):
     left = t.Int()
     bottom = t.Int()
     right = t.Int()
-    # TODO: Make into an enum
     channel_ids = t.List(t.Int())
     blend_mode_key = t.Enum(list(enums.BlendModeKey))
     opacity = t.Int(min=0, max=255)
     clipping = t.Bool()
-    # TODO: Separate out
-    flags = t.Int()
+    transparency_protected = t.Bool()
+    visible = t.Bool()
+    pixel_data_irrelevant = t.Bool()
     mask = t.Instance(LayerMask, allow_none=True)
     blending_ranges = t.Instance(BlendingRanges, allow_none=True)
     name = t.Bytes(min=0, max=255, allow_none=True)
     channel_data = t.List(t.Instance(ChannelImageData))
-    additional_info = t.List(t.Instance(AdditionalLayerInfo))
+    blocks = t.List(t.Instance(TaggedBlock))
 
     def length(self, header):
         length = 16 + 2
@@ -381,6 +402,9 @@ class LayerRecord(t.HasTraits):
         opacity = read_value(fd, 'B')
         clipping = bool(read_value(fd, 'B'))
         flags = read_value(fd, 'B')
+        transparency_protected = bool(flags & 1)
+        visible = bool(flags & 2)
+        pixel_data_irrelevant = bool(flags & 16)
         fd.seek(1, 1)  # filler
 
         extra_length = read_value(fd, 'I')
@@ -389,10 +413,10 @@ class LayerRecord(t.HasTraits):
         mask = LayerMask.read(fd, header)
         blending_ranges = BlendingRanges.read(fd, header, num_channels)
         name = read_pascal_string(fd, 4)
-        additional_info = []
+        blocks = []
         while fd.tell() < end:
-            additional_info.append(
-                AdditionalLayerInfo.read(fd, header))
+            blocks.append(
+                TaggedBlock.read(fd, header))
         fd.seek(end)
 
         result = cls(
@@ -404,11 +428,13 @@ class LayerRecord(t.HasTraits):
             blend_mode_key=blend_mode_key,
             opacity=opacity,
             clipping=clipping,
-            flags=flags,
+            transparency_protected=transparency_protected,
+            visible=visible,
+            pixel_data_irrelevant=pixel_data_irrelevant,
             mask=mask,
             blending_ranges=blending_ranges,
             name=name,
-            additional_info=additional_info)
+            blocks=blocks)
 
         result._channel_data_lengths = channel_data_lengths
         return result
@@ -435,21 +461,28 @@ class LayerRecord(t.HasTraits):
         fd.write(self.blend_mode_key)
         write_value(fd, 'B', self.opacity)
         write_value(fd, 'B', int(self.clipping))
-        write_value(fd, 'B', self.flags)
+        flags = 8
+        if self.transparency_protected:
+            flags |= 1
+        if self.visible:
+            flags |= 2
+        if self.pixel_data_irrelevant:
+            flags |= 16
+        write_value(fd, 'B', flags)
         fd.write(b'\0')  # filler
 
         extra_length = (
             self.mask.total_length(header) +
             self.blending_ranges.total_length(header) +
             pascal_string_length(self.name, 4) +
-            sum(x.total_length(header) for x in self.additional_info)
+            sum(x.total_length(header) for x in self.blocks)
         )
         write_value(fd, 'I', extra_length)
         self.mask.write(fd, header)
         self.blending_ranges.write(fd, header)
         write_pascal_string(fd, self.name, 4)
-        for info in self.additional_info:
-            info.write(fd, header)
+        for block in self.blocks:
+            block.write(fd, header)
 
     def write_channel_data(self, fd, header):
         for data in self.channel_data:
@@ -561,7 +594,7 @@ class GlobalLayerMaskInfo(t.HasTraits):
 class LayerAndMaskInfo(t.HasTraits):
     layer_info = t.Instance(LayerInfo)
     global_layer_mask_info = t.Instance(GlobalLayerMaskInfo)
-    additional_layer_info = t.List(t.Instance(AdditionalLayerInfo))
+    additional_layer_info = t.List(t.Instance(TaggedBlock))
 
     def length(self, header):
         return (
@@ -590,7 +623,7 @@ class LayerAndMaskInfo(t.HasTraits):
 
         while fd.tell() < end:
             additional_layer_info.append(
-                AdditionalLayerInfo.read(fd, header, 4))
+                TaggedBlock.read(fd, header, 4))
 
         return cls(layer_info=layer_info,
                    global_layer_mask_info=global_layer_mask_info,
