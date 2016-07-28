@@ -1,0 +1,14 @@
+# Config file for automatic testing at travis-ci.org
+
+language: python
+python:
+  - 3.4
+  - 3.5
+
+install:
+  - pip install -r requirements_dev.txt --use-mirrors
+  - pip install -r requirements.txt --use-mirrors
+
+# TODO: coverage, flake
+script:
+  - py.test
