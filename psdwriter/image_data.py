@@ -29,8 +29,7 @@ class ImageData(util.DeferredLoad, t.HasTraits):
     def read(cls, fd, header):
         compression = fd.read(2)
         if compression == b'':
-            util.log("Done")
-            return None
+            raise IOError("Unexpected end of file")
 
         compression = struct.unpack('>H', compression)[0]
         util.log("compression: {}", enums.Compression(compression))
