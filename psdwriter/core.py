@@ -9,11 +9,11 @@ from . import enums
 from . import image_data
 from . import image_resources
 from . import layers
-from .util import BinaryStruct, trace_read, log, trace_write
+from . import util
 
 
 class Header(t.HasTraits):
-    structure = BinaryStruct(
+    structure = util.BinaryStruct(
         [('signature', '4s'),
          ('version', 'H'),
          ('_reserved', '6s'),
@@ -59,7 +59,7 @@ class Header(t.HasTraits):
         return b'\0\0\0\0\0\0\0'
 
     @classmethod
-    @trace_read
+    @util.trace_read
     def read(cls, fd):
         d = cls.structure.read(fd)
 
@@ -73,9 +73,18 @@ class Header(t.HasTraits):
             raise ValueError("Reserved area unequal to zero")
         del d['_reserved']
 
+        util.log(
+            'version: {}, num_channels: {}, '
+            'width: {}, height: {}, depth: {}, '
+            'color_mode: {}',
+            enums.Version(d['version']), d['num_channels'],
+            d['width'], d['height'], d['depth'],
+            enums.ColorMode(d['color_mode'])
+        )
+
         return cls(**d)
 
-    @trace_write
+    @util.trace_write
     def write(self, fd):
         self.structure.write(fd, self)
 
@@ -88,7 +97,7 @@ class PsdFile(t.HasTraits):
     image_data = t.Instance(image_data.ImageData, allow_none=True)
 
     @classmethod
-    @trace_read
+    @util.trace_read
     def read(cls, fd):
         header = Header.read(fd)
         color_mode_data = color_mode.ColorModeData.read(fd, header)
@@ -103,7 +112,7 @@ class PsdFile(t.HasTraits):
             layers=layer_info,
             image_data=data)
 
-    @trace_write
+    @util.trace_write
     def write(self, fd):
         self.header.write(fd)
         self.color_mode_data.write(fd, self.header)

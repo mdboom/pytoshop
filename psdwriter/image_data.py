@@ -8,12 +8,12 @@ import traitlets as t
 
 
 from . import enums
-from .util import write_value, DeferredLoad, trace_read, log, trace_write
+from . import util
 
 
-class ImageData(DeferredLoad, t.HasTraits):
+class ImageData(util.DeferredLoad, t.HasTraits):
     def __init__(self, data, **kwargs):
-        DeferredLoad.__init__(self, data)
+        util.DeferredLoad.__init__(self, data)
         t.HasTraits.__init__(self, **kwargs)
 
     compression = t.Enum(list(enums.Compression))
@@ -25,15 +25,15 @@ class ImageData(DeferredLoad, t.HasTraits):
         return 2 + self.length(header)
 
     @classmethod
-    @trace_read
+    @util.trace_read
     def read(cls, fd, header):
         compression = fd.read(2)
         if compression == b'':
-            log("Done")
+            util.log("Done")
             return None
 
         compression = struct.unpack('>H', compression)[0]
-        log("compression: {}", compression)
+        util.log("compression: {}", enums.Compression(compression))
 
         start = fd.tell()
         fd.seek(0, 2)
@@ -42,7 +42,7 @@ class ImageData(DeferredLoad, t.HasTraits):
 
         return cls(data, compression=compression)
 
-    @trace_write
+    @util.trace_write
     def write(self, fd, header):
-        write_value(fd, 'H', self.compression)
+        util.write_value(fd, 'H', self.compression)
         fd.write(self.data)
