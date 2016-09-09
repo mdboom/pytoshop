@@ -10,7 +10,7 @@ import traitlets as t
 from . import enums
 from .util import read_pascal_string, write_pascal_string, \
     pascal_string_length, read_value, write_value, round_up, pad_block, \
-    trace_read, pad, DeferredLoad, log, trace_write
+    trace_read, pad, DeferredLoad, log, trace_write, is_set_to_default
 
 
 class LayerMask(t.HasTraits):
@@ -35,6 +35,8 @@ class LayerMask(t.HasTraits):
     real_right = t.Int()
 
     def length(self, header):
+        if is_set_to_default(self):
+            return 0
         length = 16 + 1 + 1
         mask_flags = self._get_mask_flags()
         if mask_flags:
@@ -142,6 +144,9 @@ class LayerMask(t.HasTraits):
                 write_value(fd, 'B', 0)
 
         write_value(fd, 'I', self.length(header))
+        if is_set_to_default(self):
+            return
+
         write_rectangle(self.top, self.left, self.bottom, self.right)
         write_default_color(self.default_color)
 
@@ -315,13 +320,13 @@ class TaggedBlock(t.HasTraits):
     def length(self, header):
         return len(self.data)
 
-    def total_length(self, header):
+    def total_length(self, header, padding=1):
         length = 8
         if header.version == 2 and self.code in self._large_layer_info_codes:
             length += 8
         else:
             length += 4
-        length += self.length(header)
+        length += pad(len(self.data), padding)
         return length
 
     @classmethod
@@ -355,7 +360,7 @@ class TaggedBlock(t.HasTraits):
             fd.write(b'8BIM')
         fd.write(self.code)
         length = len(self.data)
-        padded_length = pad(length, 2)
+        padded_length = pad(length, padding)
         if header.version == 2 and self.code in self._large_layer_info_codes:
             write_value(fd, 'Q', length)
         else:
@@ -394,7 +399,7 @@ class LayerRecord(t.HasTraits):
         if self.blending_ranges is not None:
             length += self.blending_ranges.total_length(header)
         if self.name is not None:
-            length += pascal_string_length(self.name.encode('utf8'), 4)
+            length += pascal_string_length(self.name, 4)
         for block in self.blocks:
             length += block.total_length(header)
         return length
@@ -449,7 +454,7 @@ class LayerRecord(t.HasTraits):
 
         mask = LayerMask.read(fd, header)
         blending_ranges = BlendingRanges.read(fd, header, num_channels)
-        name = read_pascal_string(fd, 4).decode('utf8')
+        name = read_pascal_string(fd, 4)
 
         blocks = []
         while fd.tell() < end:
@@ -510,17 +515,16 @@ class LayerRecord(t.HasTraits):
         write_value(fd, 'B', flags)
         fd.write(b'\0')  # filler
 
-        encoded_name = self.name.encode('utf8')
         extra_length = (
             self.mask.total_length(header) +
             self.blending_ranges.total_length(header) +
-            pascal_string_length(encoded_name, 4) +
+            pascal_string_length(self.name, 4) +
             sum(x.total_length(header) for x in self.blocks)
         )
         write_value(fd, 'I', extra_length)
         self.mask.write(fd, header)
         self.blending_ranges.write(fd, header)
-        write_pascal_string(fd, encoded_name, 4)
+        write_pascal_string(fd, self.name, 4)
         for block in self.blocks:
             block.write(fd, header)
 
@@ -590,6 +594,8 @@ class LayerInfo(t.HasTraits):
         else:
             write_value(fd, 'Q', self.length(header))
         layer_count = len(self.layers)
+        if layer_count == 0:
+            return
         if self.use_alpha_channel:
             layer_count *= -1
         write_value(fd, 'h', layer_count)
@@ -600,12 +606,15 @@ class LayerInfo(t.HasTraits):
 
 
 class GlobalLayerMaskInfo(t.HasTraits):
-    overlay_color_space = t.Bytes(b'\0\0\0\0', min=10, max=10)
+    overlay_color_space = t.Bytes(b'\0' * 10, min=10, max=10)
     opacity = t.Int(100, min=0, max=100)
     kind = t.Int(min=0, max=255)
 
     def length(self, header):
-        return 16
+        if is_set_to_default(self):
+            return 0
+        else:
+            return 16
 
     def total_length(self, header):
         return 4 + self.length(header)
@@ -635,11 +644,14 @@ class GlobalLayerMaskInfo(t.HasTraits):
 
     @trace_write
     def write(self, fd, header):
-        write_value(fd, 'I', 16)
-        fd.write(self.overlay_color_space)
-        write_value(fd, 'H', self.opacity)
-        write_value(fd, 'B', self.kind)
-        fd.write(b'\0\0\0')  # filler
+        if is_set_to_default(self):
+            write_value(fd, 'I', 0)
+        else:
+            write_value(fd, 'I', 16)
+            fd.write(self.overlay_color_space)
+            write_value(fd, 'H', self.opacity)
+            write_value(fd, 'B', self.kind)
+            fd.write(b'\0\0\0')  # filler
 
 
 class LayerAndMaskInfo(t.HasTraits):
@@ -649,10 +661,9 @@ class LayerAndMaskInfo(t.HasTraits):
 
     def length(self, header):
         return (
-            self.layer_info.total_length(header))
-    # +
-    #         self.global_layer_mask_info.total_length(header) +
-    #         sum(x.total_length(header) for x in self.additional_layer_info))
+            self.layer_info.total_length(header) +
+            self.global_layer_mask_info.total_length(header) +
+            sum(x.total_length(header, 4) for x in self.additional_layer_info))
 
     def total_length(self, header):
         if header.version == 1:
@@ -694,6 +705,6 @@ class LayerAndMaskInfo(t.HasTraits):
             write_value(fd, 'Q', self.length(header))
 
         self.layer_info.write(fd, header)
-        # self.global_layer_mask_info.write(fd, header)
-        # for layer_info in self.additional_layer_info:
-        #     layer_info.write(fd, header, 4)
+        self.global_layer_mask_info.write(fd, header)
+        for layer_info in self.additional_layer_info:
+            layer_info.write(fd, header, 4)

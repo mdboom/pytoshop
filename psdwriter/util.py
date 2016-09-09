@@ -36,10 +36,12 @@ def read_pascal_string(fd, padding=1):
 
     padded_length = pad(length + 1, padding) - 1
     fd.seek(padded_length - length, 1)
-    return result
+    return result.decode('utf8', 'replace')
 
 
 def write_pascal_string(fd, value, padding=1):
+    value = value.encode('utf8')
+
     length = len(value)
     write_value(fd, 'B', len(value))
     if len(value) == 0:
@@ -54,6 +56,8 @@ def write_pascal_string(fd, value, padding=1):
 
 
 def pascal_string_length(value, padding=1):
+    value = value.encode('utf8')
+
     if len(value) == 0:
         return padding
 
@@ -218,3 +222,11 @@ class DeferredLoad:
             raise TypeError("data must be bytes")
         self._data = value
         self._data_length = len(value)
+
+
+def is_set_to_default(obj):
+    traits = obj.traits()
+    for key, val in traits.items():
+        if getattr(obj, key) != val.default_value:
+            return False
+    return True

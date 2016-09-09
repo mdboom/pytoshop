@@ -9,11 +9,14 @@ from .util import read_pascal_string, write_pascal_string, \
 
 class ImageResourceBlock(t.HasTraits):
     resource_id = t.Int()
-    name = t.Bytes(max=255)
+    name = t.Unicode(max=255)
     data = t.Bytes(max=(1 << 32))
 
     def length(self, header):
-        return 4 + 2 + pascal_string_length(self.name, 2) + 4 + len(self.data)
+        length = 4 + 2 + pascal_string_length(self.name, 2) + 4 + len(self.data)
+        if len(self.data) % 2 != 0:
+            length += 1
+        return length
 
     total_length = length
 
