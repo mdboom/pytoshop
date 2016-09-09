@@ -3,7 +3,8 @@
 import traitlets as t
 
 from .util import read_pascal_string, write_pascal_string, \
-    pascal_string_length, read_value, write_value, trace_read
+    pascal_string_length, read_value, write_value, trace_read, \
+    log, trace_write
 
 
 class ImageResourceBlock(t.HasTraits):
@@ -29,11 +30,14 @@ class ImageResourceBlock(t.HasTraits):
         data_length = read_value(fd, 'I')
         data = fd.read(data_length)
 
+        log("resource_id: {}, data_length: {}", resource_id, data_length)
+
         if data_length % 2 != 0:
             fd.read(1)
 
         return cls(resource_id=resource_id, name=name, data=data)
 
+    @trace_write
     def write(self, fd, header):
         fd.write(b'8BIM')
         write_value(fd, 'H', self.resource_id)
@@ -59,12 +63,15 @@ class ImageResources(t.HasTraits):
         length = read_value(fd, 'I')
         end = fd.tell() + length
 
+        log("length: {}, end: {}", length, end)
+
         blocks = []
         while fd.tell() < end:
             blocks.append(ImageResourceBlock.read(fd, header))
 
         return cls(blocks=blocks)
 
+    @trace_write
     def write(self, fd, header):
         write_value(fd, 'I', self.length(header))
         for block in self.blocks:

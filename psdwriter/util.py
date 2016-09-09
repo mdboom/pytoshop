@@ -2,7 +2,7 @@
 
 
 from functools import wraps
-import os
+import math
 import struct
 
 
@@ -146,7 +146,7 @@ class BinaryStruct(object):
 
 
 def round_up(x, base=2):
-    return int(base * round(float(x) / base))
+    return int(base * math.ceil(float(x) / base))
 
 
 def pad_block(func):
@@ -162,18 +162,28 @@ def pad_block(func):
     return wrapper
 
 
+_indent = [0]
+
+
 def trace_read(func):
     @wraps(func)
     def wrapper(self, fd, *args):
-        print(">>>", self, fd.tell())
+        log('>>> {} @ {}', repr(self), fd.tell())
+        _indent[0] += 1
         result = func(self, fd, *args)
-        print("<<<", self, fd.tell())
+        _indent[0] -= 1
+        log('<<< {} @ {}', repr(self), fd.tell())
         return result
 
+    return wrapper
+
+
+trace_write = trace_read
+
+
+def log(msg, *args):
     if DEBUG:
-        return wrapper
-    else:
-        return func
+        print("  " * _indent[0], msg.format(*args))
 
 
 class DeferredLoad:

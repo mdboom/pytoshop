@@ -9,7 +9,7 @@ from . import enums
 from . import image_data
 from . import image_resources
 from . import layers
-from .util import BinaryStruct
+from .util import BinaryStruct, trace_read, log, trace_write
 
 
 class Header(t.HasTraits):
@@ -59,6 +59,7 @@ class Header(t.HasTraits):
         return b'\0\0\0\0\0\0\0'
 
     @classmethod
+    @trace_read
     def read(cls, fd):
         d = cls.structure.read(fd)
 
@@ -74,6 +75,7 @@ class Header(t.HasTraits):
 
         return cls(**d)
 
+    @trace_write
     def write(self, fd):
         self.structure.write(fd, self)
 
@@ -86,6 +88,7 @@ class PsdFile(t.HasTraits):
     image_data = t.Instance(image_data.ImageData, allow_none=True)
 
     @classmethod
+    @trace_read
     def read(cls, fd):
         header = Header.read(fd)
         color_mode_data = color_mode.ColorModeData.read(fd, header)
@@ -100,6 +103,7 @@ class PsdFile(t.HasTraits):
             layers=layer_info,
             image_data=data)
 
+    @trace_write
     def write(self, fd):
         self.header.write(fd)
         self.color_mode_data.write(fd, self.header)
