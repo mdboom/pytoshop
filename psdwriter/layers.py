@@ -281,8 +281,8 @@ class BlendingRanges(t.HasTraits):
         util.write_value(fd, 'I', self.length(header))
         if self.composite_gray_blend is not None:
             self.composite_gray_blend.write(fd, header)
-        for channel in self.channels:
-            channel.write(fd, header)
+            for channel in self.channels:
+                channel.write(fd, header)
 
 
 class ChannelImageData(util.DeferredLoad, t.HasTraits):
