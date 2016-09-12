@@ -11,10 +11,10 @@ from . import enums
 from . import util
 
 
-class ImageData(util.DeferredLoad, t.HasTraits):
+class ImageData(t.HasTraits):
     def __init__(self, data, **kwargs):
-        util.DeferredLoad.__init__(self, data)
         t.HasTraits.__init__(self, **kwargs)
+        self._data = data
 
     compression = t.Enum(list(enums.Compression))
 
@@ -23,6 +23,10 @@ class ImageData(util.DeferredLoad, t.HasTraits):
 
     def total_length(self, header):
         return 2 + self.length(header)
+
+    @property
+    def data(self):
+        return self._data
 
     @classmethod
     @util.trace_read
@@ -34,10 +38,7 @@ class ImageData(util.DeferredLoad, t.HasTraits):
         compression = struct.unpack('>H', compression)[0]
         util.log("compression: {}", enums.Compression(compression))
 
-        start = fd.tell()
-        fd.seek(0, 2)
-        end = fd.tell()
-        data = (fd, start, end-start)
+        data = fd.read()
 
         return cls(data, compression=compression)
 

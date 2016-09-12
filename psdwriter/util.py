@@ -107,40 +107,6 @@ def log(msg, *args):
         print("  " * _indent[0], msg.format(*args))
 
 
-class DeferredLoad:
-    def __init__(self, data):
-        if isinstance(data, bytes):
-            self._data = data
-            self._data_length = len(data)
-        elif isinstance(data, tuple):
-            self._data = None
-            self._fd = data[0]
-            self._data_offset = data[1]
-            self._data_length = data[2]
-        else:
-            raise TypeError("data is invalid type")
-
-    @property
-    def data_length(self):
-        return self._data_length
-
-    @property
-    def data(self):
-        if self._data is None:
-            start = self._fd.tell()
-            self._fd.seek(self._data_offset, 0)
-            self._data = self._fd.read(self._data_length)
-            self._fd.seek(start, 0)
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        if not isinstance(value, bytes):
-            raise TypeError("data must be bytes")
-        self._data = value
-        self._data_length = len(value)
-
-
 def is_set_to_default(obj):
     traits = obj.traits()
     for key, val in traits.items():

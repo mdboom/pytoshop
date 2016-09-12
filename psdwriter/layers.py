@@ -7,6 +7,7 @@ import struct
 import traitlets as t
 
 
+from . import decoding
 from . import enums
 from . import util
 
@@ -285,32 +286,58 @@ class BlendingRanges(t.HasTraits):
                 channel.write(fd, header)
 
 
-class ChannelImageData(util.DeferredLoad, t.HasTraits):
-    def __init__(self, data, **kwargs):
-        util.DeferredLoad.__init__(self, data)
+class ChannelImageData(t.HasTraits):
+    def __init__(self, image, **kwargs):
         t.HasTraits.__init__(self, **kwargs)
+        self._image = image
+        self._writing = False
+        self._compressed = None
+        # TODO: assert image is of right type
 
     compression = t.Enum(list(enums.Compression))
 
+    @property
+    def image(self):
+        return self._image
+
     def length(self, header):
-        return self.data_length
+        return len(self.get_compressed(header))
 
     def total_length(self, header):
         return 2 + self.length(header)
 
+    def get_compressed(self, header):
+        if self._compressed is None:
+            compressed = decoding.compress_image(
+                self.image, self.compression, header.depth, header.version)
+            if self._writing:
+                self._compressed = compressed
+            return compressed
+        return self._compressed
+
     @classmethod
     @util.trace_read
-    def read(cls, fd, header, size):
+    def read(cls, fd, header, layer_info, size):
         compression = util.read_value(fd, 'H')
         util.log("compression: {}", enums.Compression(compression))
-        data = (fd, fd.tell(), size)
-        fd.seek(size, 1)
-        return cls(data, compression=compression)
+        data = fd.read(size)
+        image = decoding.decompress_image(
+            data, compression, layer_info.shape, header.depth, header.version)
+        return cls(image, compression=compression)
 
     @util.trace_write
     def write(self, fd, header):
         util.write_value(fd, 'H', self.compression)
-        fd.write(self.data)
+        compressed = self.get_compressed(header)
+        fd.write(compressed)
+
+    def _start_write(self):
+        self._writing = True
+        self._compressed = None
+
+    def _end_write(self):
+        self._writing = False
+        self._compressed = None
 
 
 class TaggedBlock(t.HasTraits):
@@ -394,6 +421,22 @@ class LayerRecord(t.HasTraits):
     channel_data = t.List(t.Instance(ChannelImageData))
     blocks = t.List(t.Instance(TaggedBlock))
 
+    @property
+    def width(self):
+        return self.right - self.left
+
+    @property
+    def height(self):
+        return self.bottom - self.top
+
+    @property
+    def size(self):
+        return self.width * self.height
+
+    @property
+    def shape(self):
+        return (self.height, self.width)
+
     def length(self, header):
         length = 16 + 2
         if header.version == 1:
@@ -476,6 +519,7 @@ class LayerRecord(t.HasTraits):
         fd.seek(end)
 
         result = cls(
+            header,
             top=top,
             left=left,
             bottom=bottom,
@@ -498,7 +542,7 @@ class LayerRecord(t.HasTraits):
     def read_channel_data(self, fd, header):
         for channel_length in self._channel_data_lengths:
             self.channel_data.append(
-                ChannelImageData.read(fd, header, channel_length - 2))
+                ChannelImageData.read(fd, header, self, channel_length - 2))
 
     @util.trace_write
     def write(self, fd, header):
@@ -544,6 +588,14 @@ class LayerRecord(t.HasTraits):
     def write_channel_data(self, fd, header):
         for data in self.channel_data:
             data.write(fd, header)
+
+    def _start_write(self):
+        for data in self.channel_data:
+            data._start_write()
+
+    def _end_write(self):
+        for data in self.channel_data:
+            data._end_write()
 
 
 class LayerInfo(t.HasTraits):
@@ -594,14 +646,16 @@ class LayerInfo(t.HasTraits):
 
             fd.seek(end)
 
-            return cls(layers=layers,
-                       use_alpha_channel=use_alpha_channel)
+            return cls(layers=layers, use_alpha_channel=use_alpha_channel)
         else:
             return cls()
 
     @util.trace_write
     @util.pad_block
     def write(self, fd, header):
+        for layer in self.layers:
+            layer._start_write()
+
         if header.version == 1:
             util.write_value(fd, 'I', self.length(header))
         else:
@@ -616,6 +670,8 @@ class LayerInfo(t.HasTraits):
             layer.write(fd, header)
         for layer in self.layers:
             layer.write_channel_data(fd, header)
+        for layer in self.layers:
+            layer._end_write()
 
 
 class GlobalLayerMaskInfo(t.HasTraits):
