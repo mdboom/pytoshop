@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 
+import struct
+
+
 import traitlets as t
 
 
@@ -13,16 +16,6 @@ from . import util
 
 
 class Header(t.HasTraits):
-    structure = util.BinaryStruct(
-        [('signature', '4s'),
-         ('version', 'H'),
-         ('_reserved', '6s'),
-         ('num_channels', 'H'),
-         ('height', 'I'),
-         ('width', 'I'),
-         ('depth', 'H'),
-         ('color_mode', 'H')])
-
     signatures = {
         b'8BPS': 1,
         b'8BPB': 2
@@ -54,39 +47,37 @@ class Header(t.HasTraits):
                     self.version,
                     self.max_size_mapping[self.version]))
 
-    @property
-    def _reserved(self):
-        return b'\0\0\0\0\0\0\0'
-
     @classmethod
     @util.trace_read
     def read(cls, fd):
-        d = cls.structure.read(fd)
+        data = fd.read(26)
 
-        if d['signature'] not in cls.signatures:
-            raise ValueError("Invalid signature '{}'".format(d['signature']))
-        if cls.signatures[d['signature']] != d['version']:
+        (signature, version, _reserved, num_channels,
+         height, width, depth, color_mode) = struct.unpack('>4sH6sHIIHH', data)
+
+        if signature not in cls.signatures:
+            raise ValueError("Invalid signature '{}'".format(signature))
+        if cls.signatures[signature] != version:
             raise ValueError("Signature and version mismatch")
-        del d['signature']
-
-        if d['_reserved'] != b'\0\0\0\0\0\0':
-            raise ValueError("Reserved area unequal to zero")
-        del d['_reserved']
 
         util.log(
             'version: {}, num_channels: {}, '
             'width: {}, height: {}, depth: {}, '
             'color_mode: {}',
-            enums.Version(d['version']), d['num_channels'],
-            d['width'], d['height'], d['depth'],
-            enums.ColorMode(d['color_mode'])
+            enums.Version(version), num_channels, width, height,
+            depth, enums.ColorMode(color_mode)
         )
 
-        return cls(**d)
+        return cls(version=version, num_channels=num_channels,
+                   width=width, height=height, depth=depth,
+                   color_mode=color_mode)
 
     @util.trace_write
     def write(self, fd):
-        self.structure.write(fd, self)
+        data = struct.pack(
+            '>4sH6sHIIHH', self.signature, self.version, b'', self.num_channels,
+            self.height, self.width, self.depth, self.color_mode)
+        fd.write(data)
 
 
 class PsdFile(t.HasTraits):

@@ -54,14 +54,6 @@ class TestHeader(object):
         with pytest.raises(ValueError):
             core.Header.read(fd)
 
-    def test_header_invalid_reserved(self):
-        content = (
-            b'8BPB\0\x02\0\0\0\x01\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1')
-        fd = io.BytesIO(content)
-        fd.seek(0)
-        with pytest.raises(ValueError):
-            core.Header.read(fd)
-
     def test_header_invalid_width(self):
         content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\0\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
