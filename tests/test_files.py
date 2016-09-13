@@ -31,3 +31,24 @@ def test_files(filename):
 
     fd2.seek(0)
     f = psdwriter.PsdFile.read(fd2)
+
+
+@pytest.mark.parametrize("filename", glob.glob(path))
+def test_convert_to_version2(filename):
+    if filename.endswith('rt.psd'):
+        return
+
+    with open(filename, 'rb') as fd:
+        f = psdwriter.PsdFile.read(fd)
+        f.version = 2
+
+        # Disable compression just to make these tests faster
+        # for layer in f.layer_and_mask_info.layer_info.layer_records:
+        #     for channel in layer.channels.values():
+        #         channel.compression = 0
+
+        fd2 = io.BytesIO()
+        f.write(fd2)
+
+    fd2.seek(0)
+    f = psdwriter.PsdFile.read(fd2)

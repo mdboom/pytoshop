@@ -86,7 +86,7 @@ def decompress_raw(data, shape, depth, version):
 def decompress_rle(data, shape, depth, version):
     try:
         import packbits
-    except ImportError:
+    except ImportError:  # pragma: no cover
         raise ImportError(
             "packbits must be installed to handle RLE compression")
 
@@ -112,7 +112,7 @@ def decompress_zip(data, shape, depth, version):
 
 
 def decompress_zip_prediction(data, shape, depth, version):
-    if depth == 1:
+    if depth == 1:  # pragma: no cover
         raise ValueError(
             "zip with prediction is not supported for 1-bit images")
 
@@ -142,7 +142,7 @@ def compress_raw(image, depth, version):
 def compress_rle(image, depth, version):
     try:
         import packbits
-    except ImportError:
+    except ImportError:  # pragma: no cover
         raise ImportError(
             "packbits must be installed to handle RLE compression")
 
@@ -168,6 +168,10 @@ def compress_zip(image, depth, version):
 
 
 def compress_zip_prediction(image, depth, version):
+    if depth == 1:  # pragma: no cover
+        raise ValueError(
+            "zip with prediction is not supported for 1-bit images")
+
     data = compress_raw(image, depth, version)
     data = encode_prediction(image, depth)
     return zlib.compress(data)

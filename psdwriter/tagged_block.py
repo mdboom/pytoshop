@@ -38,7 +38,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
             length += 8
         else:
             length += 4
-        length += util.pad(len(self.data), padding)
+        length += util.pad(self.length(header), padding)
         return length
 
     @classmethod

@@ -19,19 +19,16 @@ class ImageData(t.HasTraits):
         default_value=enums.Compression.raw)
     channels = t.Instance(np.ndarray, allow_none=True)
 
-    @t.validate
-    def _valid_image(self, proposal):
-        if proposal['value'] is None:
+    @t.validate('channels')
+    def _valid_channels(self, proposal):
+        value = proposal['value']
+        if value is None:
             return None
-        if len(proposal['value'].shape) != 3:
+        if len(value.shape) != 3:
             raise ValueError("image must be a 3-dimensional array")
-        return proposal['value']
-
-    def length(self, header):
-        return len(self.get_compressed(header))
-
-    def total_length(self, header):
-        return 2 + self.length(header)
+        if value.dtype.kind != 'u':
+            raise ValueError("image must have unsigned integer data type")
+        return value
 
     @classmethod
     @util.trace_read

@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-test_psdwriter
-----------------------------------
-
-Tests for `psdwriter` module.
-"""
 
 import io
 
@@ -67,3 +61,18 @@ class TestHeader(object):
         fd.seek(0)
         with pytest.raises(t.TraitError):
             core.Header.read(fd)
+
+    def test_size_too_large(self):
+        with pytest.raises(t.TraitError):
+            core.Header(version=1, width=30001, height=5)
+        core.Header(version=2, width=30001, height=5)
+
+        with pytest.raises(t.TraitError):
+            core.Header(version=2, width=300001, height=5)
+
+        with pytest.raises(t.TraitError):
+            core.Header(version=1, width=5, height=30001)
+        core.Header(version=2, width=5, height=30001)
+
+        with pytest.raises(t.TraitError):
+            core.Header(version=2, width=5, height=300001)

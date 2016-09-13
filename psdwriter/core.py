@@ -56,7 +56,7 @@ class Header(t.HasTraits):
 
     @classmethod
     @util.trace_read
-    def read(cls, fd):
+    def header_read(cls, fd):
         data = fd.read(26)
 
         (signature, version, _reserved, num_channels,
@@ -79,6 +79,8 @@ class Header(t.HasTraits):
                    width=width, height=height, depth=depth,
                    color_mode=color_mode)
 
+    read = header_read
+
     @util.trace_write
     def write(self, fd):
         data = struct.pack(
@@ -88,8 +90,7 @@ class Header(t.HasTraits):
         fd.write(data)
 
 
-class PsdFile(t.HasTraits):
-    header = t.Instance(Header)
+class PsdFile(Header):
     color_mode_data = t.Instance(color_mode.ColorModeData)
     image_resources = t.Instance(image_resources.ImageResources)
     layer_and_mask_info = t.Instance(layers.LayerAndMaskInfo)
@@ -114,23 +115,17 @@ class PsdFile(t.HasTraits):
     @classmethod
     @util.trace_read
     def read(cls, fd):
-        header = Header.read(fd)
-        color_mode_data = color_mode.ColorModeData.read(fd, header)
-        resources = image_resources.ImageResources.read(fd, header)
-        layer_and_mask_info = layers.LayerAndMaskInfo.read(fd, header)
-        data = image_data.ImageData.read(fd, header)
-
-        return cls(
-            header=header,
-            color_mode_data=color_mode_data,
-            image_resources=resources,
-            layer_and_mask_info=layer_and_mask_info,
-            image_data=data)
+        self = cls.header_read(fd)
+        self.color_mode_data = color_mode.ColorModeData.read(fd, self)
+        self.image_resources = image_resources.ImageResources.read(fd, self)
+        self.layer_and_mask_info = layers.LayerAndMaskInfo.read(fd, self)
+        self.image_data = image_data.ImageData.read(fd, self)
+        return self
 
     @util.trace_write
     def write(self, fd):
-        self.header.write(fd)
-        self.color_mode_data.write(fd, self.header)
-        self.image_resources.write(fd, self.header)
-        self.layer_and_mask_info.write(fd, self.header)
-        self.image_data.write(fd, self.header)
+        Header.write(self, fd)
+        self.color_mode_data.write(fd, self)
+        self.image_resources.write(fd, self)
+        self.layer_and_mask_info.write(fd, self)
+        self.image_data.write(fd, self)

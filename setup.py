@@ -10,11 +10,13 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    # TODO: put package requirements here
+    'numpy',
+    'traitlets'
 ]
 
 test_requirements = [
-    # TODO: put package test requirements here
+    'pytest',
+    'packbits'
 ]
 
 setup(
@@ -27,6 +29,7 @@ setup(
     url='https://github.com/mdboom/psdwriter',
     packages=[
         'psdwriter',
+        'psdwriter.user'
     ],
     package_dir={'psdwriter':
                  'psdwriter'},
@@ -40,12 +43,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
     ],
     test_suite='tests',

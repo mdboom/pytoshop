@@ -70,10 +70,6 @@ def psd_to_nested_layers(psdfile):
         blocks = layer.blocks_map
 
         name = blocks.get(b'luni', layer).name
-        if b'lyid' in blocks:
-            layer_id = blocks.get(b'lyid').id
-        else:
-            layer_id = None
         divider = blocks.get(b'lsct', blocks.get(b'lsdk'))
         visible = layer.visible
         opacity = layer.opacity
@@ -134,13 +130,6 @@ def psd_to_nested_layers(psdfile):
             current_group.layers.append(layer)
 
     return root.layers
-
-
-itemsize_to_depth = {
-    1: 8,
-    2: 16,
-    4: 32
-}
 
 
 def _flatten_layers(layers, flat_layers, compression):
@@ -227,9 +216,8 @@ def _adjust_positions(layers):
     return width, height
 
 
-def _determine_channels_and_depth(layers):
+def _determine_channels_and_depth(layers, depth):
     num_channels = 0
-    depth = None
     for image in _iterate_all_images(layers):
         for index, channel in image.channels.items():
             num_channels = max(num_channels, index + 1)
@@ -247,6 +235,7 @@ def nested_layers_to_psd(
         version=enums.Version.version_1,
         compression=enums.Compression.zip,
         color_mode=enums.ColorMode.rgb,
+        depth=None,
         size=None):
 
     try:
@@ -254,7 +243,7 @@ def nested_layers_to_psd(
     except StopIteration:
         raise ValueError("No images found in layers")
 
-    num_channels, depth = _determine_channels_and_depth(layers)
+    num_channels, depth = _determine_channels_and_depth(layers, depth)
 
     if size is None:
         width, height = _adjust_positions(layers)
@@ -264,14 +253,12 @@ def nested_layers_to_psd(
     flat_layers = _flatten_layers(layers, [], compression)[::-1]
 
     f = core.PsdFile(
-        header=core.Header(
-            version=version,
-            num_channels=num_channels,
-            height=height,
-            width=width,
-            depth=depth,
-            color_mode=color_mode
-        ),
+        version=version,
+        num_channels=num_channels,
+        height=height,
+        width=width,
+        depth=depth,
+        color_mode=color_mode,
         layer_and_mask_info=l.LayerAndMaskInfo(
             layer_info=l.LayerInfo(
                 layer_records=flat_layers

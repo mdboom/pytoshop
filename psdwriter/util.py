@@ -7,7 +7,7 @@ import struct
 import sys
 
 
-DEBUG = True
+DEBUG = False
 
 
 def read_value(fd, fmt, endian='>'):
@@ -111,7 +111,7 @@ def trace_read(func):
 trace_write = trace_read
 
 
-def log(msg, *args):
+def log(msg, *args):  # pragma: no cover
     if DEBUG:
         print("  " * _indent[0], msg.format(*args))
 
@@ -126,7 +126,7 @@ def is_set_to_default(obj):
 
 def ensure_bigendian(arr):
     order = arr.dtype.byteorder
-    if order == '=':
+    if order == '=':  # pragma: no cover
         if sys.byteorder == 'little':
             order = '<'
         else:

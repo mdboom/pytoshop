@@ -165,7 +165,7 @@ class LayerMask(t.HasTraits):
         if self.invert_layer_mask_when_blending:
             flags |= 4
         if self.user_mask_from_rendering_other_data:
-            flags |= 7
+            flags |= 8
         mask_flags = self._get_mask_flags()
         if mask_flags:
             flags |= 16
@@ -318,11 +318,14 @@ class ChannelImageData(t.HasTraits):
         default_value=enums.Compression.zip)
     image = t.Instance(np.ndarray, allow_none=True)
 
-    @t.validate
+    @t.validate('image')
     def _valid_image(self, proposal):
-        if len(proposal['value'].shape) != 2:
+        value = proposal['value']
+        if len(value.shape) != 2:
             raise ValueError("image must be 2-dimensional array")
-        return proposal['value']
+        if value.dtype.kind != 'u':
+            raise ValueError("image must be unsigned integers")
+        return value
 
     def length(self, header, layer_record):
         return len(self.get_compressed(header, layer_record))
@@ -359,7 +362,7 @@ class ChannelImageData(t.HasTraits):
     @util.trace_write
     def write(self, fd, header, layer_record):
         if (self.image is not None and
-            self.image.shape != layer_record.shape):
+                self.image.shape != layer_record.shape):
             raise ValueError(
                 "Image shape does not match layer. "
                 "Expected {}, got {}".format(
@@ -430,10 +433,6 @@ class LayerRecord(t.HasTraits):
     @property
     def height(self):
         return self.bottom - self.top
-
-    @property
-    def size(self):
-        return self.width * self.height
 
     @property
     def shape(self):
@@ -560,7 +559,10 @@ class LayerRecord(t.HasTraits):
         util.write_value(fd, 'H', len(self.channels))
         for channel_id, channel in self.channels.items():
             util.write_value(fd, 'h', channel_id)
-            util.write_value(fd, 'I', channel.total_length(header, self))
+            if header.version == 1:
+                util.write_value(fd, 'I', channel.total_length(header, self))
+            else:
+                util.write_value(fd, 'Q', channel.total_length(header, self))
         fd.write(b'8BIM')
         fd.write(self.blend_mode)
         util.write_value(fd, 'B', self.opacity)
