@@ -9,6 +9,7 @@ import traitlets as t
 
 from . import decoding
 from . import enums
+from . import tagged_block
 from . import util
 
 
@@ -340,75 +341,12 @@ class ChannelImageData(t.HasTraits):
         self._compressed = None
 
 
-class TaggedBlock(t.HasTraits):
-    code = t.Bytes(min=4, max=4)
-    data = t.Bytes()
-
-    _large_layer_info_codes = set([
-        b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
-        b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',
-        b'PxSD'])
-
-    def length(self, header):
-        return len(self.data)
-
-    def total_length(self, header, padding=1):
-        length = 8
-        if header.version == 2 and self.code in self._large_layer_info_codes:
-            length += 8
-        else:
-            length += 4
-        length += util.pad(len(self.data), padding)
-        return length
-
-    @classmethod
-    @util.trace_read
-    def read(cls, fd, header, padding=1):
-        signature = fd.read(4)
-        if signature not in (b'8BIM', b'8B64'):
-            raise ValueError('Invalid signature in tagged block')
-
-        code = fd.read(4)
-
-        if header.version == 2 and code in cls._large_layer_info_codes:
-            length = util.read_value(fd, 'Q')
-        else:
-            length = util.read_value(fd, 'I')
-        padded_length = util.pad(length, padding)
-
-        util.log(
-            "code: {}, length: {}, padded_length: {}",
-            code, length, padded_length
-        )
-
-        data = fd.read(length)
-        fd.seek(padded_length - length, 1)
-
-        return cls(code=code, data=data)
-
-    @util.trace_write
-    def write(self, fd, header, padding=1):
-        if header.version == 2 and self.code in self._large_layer_info_codes:
-            fd.write(b'8B64')
-        else:
-            fd.write(b'8BIM')
-        fd.write(self.code)
-        length = len(self.data)
-        padded_length = util.pad(length, padding)
-        if header.version == 2 and self.code in self._large_layer_info_codes:
-            util.write_value(fd, 'Q', length)
-        else:
-            util.write_value(fd, 'I', length)
-        fd.write(self.data)
-        fd.write(b'\0' * (padded_length - length))
-
-
 class LayerRecord(t.HasTraits):
     top = t.Int()
     left = t.Int()
     bottom = t.Int()
     right = t.Int()
-    channel_ids = t.List(t.Int())
+    channel_ids = t.List(t.Enum(list(enums.ChannelId)))
     blend_mode_key = t.Enum(list(enums.BlendModeKey))
     opacity = t.Int(min=0, max=255)
     clipping = t.Bool()
@@ -419,7 +357,7 @@ class LayerRecord(t.HasTraits):
     blending_ranges = t.Instance(BlendingRanges, allow_none=True)
     name = t.Unicode(min=0, max=255, allow_none=True)
     channel_data = t.List(t.Instance(ChannelImageData))
-    blocks = t.List(t.Instance(TaggedBlock))
+    blocks = t.List(t.Instance(tagged_block.TaggedBlock))
 
     @property
     def width(self):
@@ -515,7 +453,7 @@ class LayerRecord(t.HasTraits):
         blocks = []
         while fd.tell() < end:
             blocks.append(
-                TaggedBlock.read(fd, header))
+                tagged_block.TaggedBlock.read(fd, header))
         fd.seek(end)
 
         result = cls(
@@ -728,7 +666,7 @@ class GlobalLayerMaskInfo(t.HasTraits):
 class LayerAndMaskInfo(t.HasTraits):
     layer_info = t.Instance(LayerInfo)
     global_layer_mask_info = t.Instance(GlobalLayerMaskInfo)
-    additional_layer_info = t.List(t.Instance(TaggedBlock))
+    additional_layer_info = t.List(t.Instance(tagged_block.TaggedBlock))
 
     def length(self, header):
         return (
@@ -762,7 +700,7 @@ class LayerAndMaskInfo(t.HasTraits):
 
             while fd.tell() < end:
                 additional_layer_info.append(
-                    TaggedBlock.read(fd, header, 4))
+                    tagged_block.TaggedBlock.read(fd, header, 4))
 
         return cls(layer_info=layer_info,
                    global_layer_mask_info=global_layer_mask_info,

@@ -66,6 +66,14 @@ def pascal_string_length(value, padding=1):
     return length + padding + 1
 
 
+def decode_unicode_string(data):
+    return data[4:].decode('utf_16_be')
+
+
+def encode_unicode_string(s):
+    return struct.pack('>L', len(s)) + s.encode('utf_16_be')
+
+
 def round_up(x, base=2):
     return int(base * math.ceil(float(x) / base))
 

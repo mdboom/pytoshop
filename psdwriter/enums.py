@@ -69,3 +69,19 @@ class LayerMaskKind(enum.IntEnum):
     color_selected = 0
     color_protected = 1
     use_value_stored_per_layer = 128
+
+
+class ChannelId(enum.IntEnum):
+    red = 0
+    green = 1
+    blue = 2
+    transparency = -1
+    user_layer_mask = -2
+    real_user_layer_mask = -3
+
+
+class SectionDividerSetting(enum.IntEnum):
+    any_other = 0
+    open = 1
+    closed = 2
+    bounding = 3
