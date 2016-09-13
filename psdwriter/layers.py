@@ -462,7 +462,8 @@ class LayerRecord(t.HasTraits):
     total_length = length
 
     def total_data_length(self, header):
-        return sum(x.total_length(header, self) for x in self.channels.values())
+        return sum(x.total_length(header, self)
+                   for x in self.channels.values())
 
     @classmethod
     @util.trace_read

@@ -58,4 +58,5 @@ def test_futz_with_layer_channels():
 
     with pytest.raises(t.TraitError):
         first_layer.channels = {
-            'zero': layers.ChannelImageData(image=np.empty((200, 100), np.uint8))}
+            'zero': layers.ChannelImageData(
+                image=np.empty((200, 100), np.uint8))}
