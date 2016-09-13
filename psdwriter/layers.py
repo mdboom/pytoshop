@@ -4,6 +4,7 @@
 import struct
 
 
+import numpy as np
 import traitlets as t
 
 
@@ -288,18 +289,19 @@ class BlendingRanges(t.HasTraits):
 
 
 class ChannelImageData(t.HasTraits):
-    def __init__(self, image, **kwargs):
+    def __init__(self, **kwargs):
         t.HasTraits.__init__(self, **kwargs)
-        self._image = image
         self._writing = False
         self._compressed = None
-        # TODO: assert image is of right type
 
     compression = t.Enum(list(enums.Compression))
+    image = t.Instance(np.ndarray)
 
-    @property
-    def image(self):
-        return self._image
+    @t.validate
+    def _valid_image(self, proposal):
+        if len(proposal['value'].shape) != 2:
+            raise ValueError("image must be 2-dimensional array")
+        return proposal['value']
 
     def length(self, header):
         return len(self.get_compressed(header))
@@ -324,10 +326,16 @@ class ChannelImageData(t.HasTraits):
         data = fd.read(size)
         image = decoding.decompress_image(
             data, compression, layer_info.shape, header.depth, header.version)
-        return cls(image, compression=compression)
+        return cls(image=image, compression=compression)
 
     @util.trace_write
-    def write(self, fd, header):
+    def write(self, fd, header, layer_info):
+        if self.image.shape != layer_info.shape:
+            raise ValueError(
+                "Image shape does not match layer. "
+                "Expected {}, got {}".format(
+                    layer_info.shape, self.image.shape))
+
         util.write_value(fd, 'H', self.compression)
         compressed = self.get_compressed(header)
         fd.write(compressed)
@@ -525,7 +533,7 @@ class LayerRecord(t.HasTraits):
 
     def write_channel_data(self, fd, header):
         for data in self.channel_data:
-            data.write(fd, header)
+            data.write(fd, header, self)
 
     def _start_write(self):
         for data in self.channel_data:
@@ -594,22 +602,24 @@ class LayerInfo(t.HasTraits):
         for layer in self.layers:
             layer._start_write()
 
-        if header.version == 1:
-            util.write_value(fd, 'I', self.length(header))
-        else:
-            util.write_value(fd, 'Q', self.length(header))
-        layer_count = len(self.layers)
-        if layer_count == 0:
-            return
-        if self.use_alpha_channel:
-            layer_count *= -1
-        util.write_value(fd, 'h', layer_count)
-        for layer in self.layers:
-            layer.write(fd, header)
-        for layer in self.layers:
-            layer.write_channel_data(fd, header)
-        for layer in self.layers:
-            layer._end_write()
+        try:
+            if header.version == 1:
+                util.write_value(fd, 'I', self.length(header))
+            else:
+                util.write_value(fd, 'Q', self.length(header))
+            layer_count = len(self.layers)
+            if layer_count == 0:
+                return
+            if self.use_alpha_channel:
+                layer_count *= -1
+            util.write_value(fd, 'h', layer_count)
+            for layer in self.layers:
+                layer.write(fd, header)
+            for layer in self.layers:
+                layer.write_channel_data(fd, header)
+        finally:
+            for layer in self.layers:
+                layer._end_write()
 
 
 class GlobalLayerMaskInfo(t.HasTraits):

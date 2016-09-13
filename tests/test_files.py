@@ -26,5 +26,8 @@ def test_files(filename):
         fd2 = io.BytesIO()
         f.write(fd2)
 
+        with open(filename + '.rt.psd', 'wb') as fd_disk:
+            f.write(fd_disk)
+
     fd2.seek(0)
     f = psdwriter.PsdFile.read(fd2)

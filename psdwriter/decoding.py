@@ -8,6 +8,7 @@ import numpy as np
 
 
 from . import enums
+from . import util
 
 
 def decode_prediction(image, depth):
@@ -32,7 +33,7 @@ def decode_prediction(image, depth):
 
 def encode_prediction(image, depth):
     def delta_encode(img):
-        img = np.array(img)
+        img = img.copy()
         for x in range(img.shape[1] - 1, 0, -1):
             img[:, x] -= img[:, x-1]
         return img
@@ -181,4 +182,36 @@ compressors = {
 
 
 def compress_image(image, compression, depth, version):
+    dtype = image.dtype
+    if dtype.kind != 'u':
+        raise ValueError("Image array dtype must be unsigned int")
+    if dtype.itemsize != color_depth_size_map[depth]:
+        raise ValueError("Image array values of wrong size")
+    image = util.ensure_bigendian(image)
+
     return compressors[compression](image, depth, version)
+
+
+def interlace_image(image, width, height, num_channels):
+    result = np.empty(
+        (height, width, num_channels),
+        dtype=image.dtype)
+    image = image.reshape((num_channels, height, width))
+
+    for i in range(num_channels):
+        result[:, :, i] = image[i]
+
+    return result
+
+
+def deinterlace_image(image, width, height, num_channels):
+    result = np.empty(
+        (num_channels, height, width),
+        dtype=image.dtype)
+
+    for i in range(num_channels):
+        result[i] = image[:, :, i]
+
+    result = result.reshape((height * num_channels, width))
+
+    return result

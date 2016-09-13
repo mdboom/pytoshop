@@ -4,6 +4,7 @@
 from functools import wraps
 import math
 import struct
+import sys
 
 
 DEBUG = True
@@ -121,3 +122,17 @@ def is_set_to_default(obj):
         if getattr(obj, key) != val.default_value:
             return False
     return True
+
+
+def ensure_bigendian(arr):
+    order = arr.dtype.byteorder
+    if order == '=':
+        if sys.byteorder == 'little':
+            order = '<'
+        else:
+            order = '>'
+
+    if order != '>':
+        return arr.byteswap().view(arr.dtype.newbyteorder('>'))
+
+    return arr

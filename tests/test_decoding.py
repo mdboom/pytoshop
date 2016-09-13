@@ -7,6 +7,7 @@ import pytest
 
 
 from psdwriter import decoding
+from psdwriter import enums
 
 
 @pytest.mark.parametrize("depth", (8, 16))
@@ -15,11 +16,11 @@ def test_zip_with_prediction(depth):
 
     dtype = decoding.color_depth_dtype_map[depth]
     x = np.random.randint(0, (2**depth) - 1, size=(256, 256), dtype=dtype)
-    x = x.astype(dtype)
 
-    data = decoding.compress_zip_prediction(x, depth, 1)
-
-    y = decoding.decompress_zip_prediction(data, (256, 256), depth, 1)
+    data = decoding.compress_image(
+        x, enums.Compression.zip_prediction, depth, 1)
+    y = decoding.decompress_image(
+        data, enums.Compression.zip_prediction, (256, 256), depth, 1)
 
     assert_array_equal(x, y)
 
@@ -30,10 +31,11 @@ def test_zip(depth):
 
     dtype = decoding.color_depth_dtype_map[depth]
     x = np.random.randint(0, (2**depth) - 1, size=(256, 256), dtype=dtype)
-    x = x.astype(decoding.color_depth_dtype_map[depth])
 
-    data = decoding.compress_zip(x, depth, 1)
-    y = decoding.decompress_zip(data, (256, 256), depth, 1)
+    data = decoding.compress_image(
+        x, enums.Compression.zip, depth, 1)
+    y = decoding.decompress_image(
+        data, enums.Compression.zip, (256, 256), depth, 1)
 
     assert_array_equal(x, y)
 
@@ -45,9 +47,10 @@ def test_rle(depth, version):
 
     dtype = decoding.color_depth_dtype_map[depth]
     x = np.random.randint(0, (2**depth) - 1, size=(256, 256), dtype=dtype)
-    x = x.astype(decoding.color_depth_dtype_map[depth])
 
-    data = decoding.compress_rle(x, depth, version)
-    y = decoding.decompress_rle(data, (256, 256), depth, version)
+    data = decoding.compress_image(
+        x, enums.Compression.rle, depth, version)
+    y = decoding.decompress_image(
+        data, enums.Compression.rle, (256, 256), depth, version)
 
     assert_array_equal(x, y)
