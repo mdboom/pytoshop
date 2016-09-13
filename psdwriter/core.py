@@ -16,6 +16,19 @@ from . import util
 
 
 class Header(t.HasTraits):
+    version = t.Enum(
+        list(enums.Version),
+        default_value=enums.Version.version_1)
+    num_channels = t.Int(1, min=1, max=56)
+    height = t.Int(1, min=1, max=300000)
+    width = t.Int(1, min=1, max=300000)
+    depth = t.Enum(
+        list(enums.ColorDepth),
+        default_value=enums.ColorDepth.depth8)
+    color_mode = t.Enum(
+        list(enums.ColorMode),
+        default_value=enums.ColorMode.rgb)
+
     signatures = {
         b'8BPS': 1,
         b'8BPB': 2
@@ -23,20 +36,14 @@ class Header(t.HasTraits):
 
     inverse_signatures = dict((v, k) for (k, v) in signatures.items())
 
+    @property
+    def signature(self):
+        return self.inverse_signatures[self.version]
+
     max_size_mapping = {
         1: 30000,
         2: 300000
     }
-
-    @property
-    def signature(self):
-        return self.inverse_signatures[self.version]
-    version = t.Enum(list(enums.Version))
-    num_channels = t.Int(1, min=1, max=56)
-    height = t.Int(1, min=1, max=300000)
-    width = t.Int(1, min=1, max=300000)
-    depth = t.Enum(list(enums.ColorDepth))
-    color_mode = t.Enum(list(enums.ColorMode))
 
     @t.observe('width', 'height')
     def _check_size(self, change):
@@ -75,8 +82,9 @@ class Header(t.HasTraits):
     @util.trace_write
     def write(self, fd):
         data = struct.pack(
-            '>4sH6sHIIHH', self.signature, self.version, b'', self.num_channels,
-            self.height, self.width, self.depth, self.color_mode)
+            '>4sH6sHIIHH', self.signature, self.version, b'',
+            self.num_channels, self.height, self.width, self.depth,
+            self.color_mode)
         fd.write(data)
 
 
@@ -84,8 +92,24 @@ class PsdFile(t.HasTraits):
     header = t.Instance(Header)
     color_mode_data = t.Instance(color_mode.ColorModeData)
     image_resources = t.Instance(image_resources.ImageResources)
-    layers = t.Instance(layers.LayerAndMaskInfo)
-    image_data = t.Instance(image_data.ImageData, allow_none=True)
+    layer_and_mask_info = t.Instance(layers.LayerAndMaskInfo)
+    image_data = t.Instance(image_data.ImageData)
+
+    @t.default('color_mode_data')
+    def _default_color_mode_data(self):
+        return color_mode.ColorModeData()
+
+    @t.default('image_resources')
+    def _default_image_resources(self):
+        return image_resources.ImageResources()
+
+    @t.default('layer_and_mask_info')
+    def _default_layer_and_mask_info(self):
+        return layers.LayerAndMaskInfo()
+
+    @t.default('image_data')
+    def _default_image_data(self):
+        return image_data.ImageData()
 
     @classmethod
     @util.trace_read
@@ -93,14 +117,14 @@ class PsdFile(t.HasTraits):
         header = Header.read(fd)
         color_mode_data = color_mode.ColorModeData.read(fd, header)
         resources = image_resources.ImageResources.read(fd, header)
-        layer_info = layers.LayerAndMaskInfo.read(fd, header)
+        layer_and_mask_info = layers.LayerAndMaskInfo.read(fd, header)
         data = image_data.ImageData.read(fd, header)
 
         return cls(
             header=header,
             color_mode_data=color_mode_data,
             image_resources=resources,
-            layers=layer_info,
+            layer_and_mask_info=layer_and_mask_info,
             image_data=data)
 
     @util.trace_write
@@ -108,6 +132,5 @@ class PsdFile(t.HasTraits):
         self.header.write(fd)
         self.color_mode_data.write(fd, self.header)
         self.image_resources.write(fd, self.header)
-        self.layers.write(fd, self.header)
-        if self.image_data is not None:
-            self.image_data.write(fd, self.header)
+        self.layer_and_mask_info.write(fd, self.header)
+        self.image_data.write(fd, self.header)

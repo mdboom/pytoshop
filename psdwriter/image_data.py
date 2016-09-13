@@ -14,11 +14,15 @@ from . import util
 
 
 class ImageData(t.HasTraits):
-    compression = t.Enum(list(enums.Compression))
-    image = t.Instance(np.ndarray)
+    compression = t.Enum(
+        list(enums.Compression),
+        default_value=enums.Compression.zip)
+    image = t.Instance(np.ndarray, allow_none=True)
 
     @t.validate
     def _valid_image(self, proposal):
+        if proposal['value'] is None:
+            return None
         if len(proposal['value'].shape) not in (2, 3):
             raise ValueError("image must be 2- or 3-dimensional array")
         return proposal['value']
@@ -50,8 +54,14 @@ class ImageData(t.HasTraits):
         return cls(image=image, compression=compression)
 
     def get_compressed(self, header):
+        if self.image is None:
+            image = np.zeros(
+                (header.height, header.width, header.num_channels),
+                dtype=decoding.color_depth_dtype_map[header.depth])
+        else:
+            image = self.image
         image = decoding.deinterlace_image(
-            self.image, header.width, header.height, header.num_channels)
+            image, header.width, header.height, header.num_channels)
         data = decoding.compress_image(
             image, self.compression, header.depth, header.version)
         return data

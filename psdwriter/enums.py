@@ -27,7 +27,7 @@ class ColorMode(enum.IntEnum):
     lab = 9
 
 
-class BlendModeKey(bytes, enum.Enum):
+class BlendMode(bytes, enum.Enum):
     pass_through = b'pass'
     normal = b'norm'
     dissolve = b'diss'
@@ -85,3 +85,9 @@ class SectionDividerSetting(enum.IntEnum):
     open = 1
     closed = 2
     bounding = 3
+
+
+class GlobalLayerMaskKind(enum.IntEnum):
+    color_selected = 0
+    color_protected = 1
+    use_value_stored_per_layer = 128

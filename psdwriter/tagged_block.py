@@ -86,7 +86,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
 
 class GenericTaggedBlock(TaggedBlock):
     code = t.Bytes(min=4, max=4)
-    data = t.Bytes()
+    data = t.Bytes(b'')
 
     @classmethod
     def read(cls, code, data):
@@ -95,7 +95,7 @@ class GenericTaggedBlock(TaggedBlock):
 
 class UnicodeLayerName(TaggedBlock):
     code = b'luni'
-    name = t.Unicode()
+    name = t.Unicode('')
 
     @property
     def data(self):
@@ -110,7 +110,7 @@ class UnicodeLayerName(TaggedBlock):
 
 class LayerId(TaggedBlock):
     code = b'lyid'
-    id = t.Int()
+    id = t.Int(0)
 
     @property
     def data(self):
@@ -125,7 +125,7 @@ class LayerId(TaggedBlock):
 
 class LayerNameSource(TaggedBlock):
     code = b'lnsr'
-    id = t.Int()
+    id = t.Int(0)
 
     @property
     def data(self):
@@ -138,23 +138,32 @@ class LayerNameSource(TaggedBlock):
         return cls(id=id)
 
 
-class SectionDividerSetting(TaggedBlock):
-    code = b'lsct'
-    type = t.Enum(list(enums.SectionDividerSetting))
-    key = t.Enum(list(enums.BlendModeKey))
-    subtype = t.Bool()
+class _SectionDividerSetting(TaggedBlock):
+    type = t.Enum(
+        list(enums.SectionDividerSetting),
+        default_value=enums.SectionDividerSetting.open)
+    key = t.Enum(list(enums.BlendMode), allow_none=True)
+    subtype = t.Bool(allow_none=True)
 
     @property
     def data(self):
-        return struct.pack(
-            '>I4s4sI', self.type, b'8BIM', self.key, self.subtype)
+        data = struct.pack('>I', self.type)
+        if self.key is not None or self.subtype is not None:
+            if self.key is None:
+                key = b'norm'
+            else:
+                key = self.key
+            data += b'8BIM' + key
+            if self.subtype is not None:
+                data += struct.pack('>I', self.subtype)
+        return data
 
     @classmethod
     def read(cls, code, data):
         type, = struct.unpack('>I', data[:4])
 
-        key = b'pass'
-        subtype = False
+        key = None
+        subtype = None
         if len(data) >= 12:
             key = data[8:12]
 
@@ -164,3 +173,11 @@ class SectionDividerSetting(TaggedBlock):
         util.log('type: {}, key: {}, subtype: {}', type, key, subtype)
 
         return cls(type=type, key=key, subtype=subtype)
+
+
+class SectionDividerSetting(_SectionDividerSetting):
+    code = b'lsct'
+
+
+class NestedSectionDividerSetting(_SectionDividerSetting):
+    code = b'lsdk'
