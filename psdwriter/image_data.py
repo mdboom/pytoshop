@@ -16,15 +16,15 @@ from . import util
 class ImageData(t.HasTraits):
     compression = t.Enum(
         list(enums.Compression),
-        default_value=enums.Compression.zip)
-    image = t.Instance(np.ndarray, allow_none=True)
+        default_value=enums.Compression.raw)
+    channels = t.Instance(np.ndarray, allow_none=True)
 
     @t.validate
     def _valid_image(self, proposal):
         if proposal['value'] is None:
             return None
-        if len(proposal['value'].shape) not in (2, 3):
-            raise ValueError("image must be 2- or 3-dimensional array")
+        if len(proposal['value'].shape) != 3:
+            raise ValueError("image must be a 3-dimensional array")
         return proposal['value']
 
     def length(self, header):
@@ -48,20 +48,27 @@ class ImageData(t.HasTraits):
             data, compression,
             (header.height * header.num_channels, header.width),
             header.depth, header.version)
-        image = decoding.interlace_image(
-            image, header.width, header.height, header.num_channels)
+        image = image.reshape(
+            (header.num_channels, header.height, header.width))
 
-        return cls(image=image, compression=compression)
+        return cls(channels=image, compression=compression)
 
     def get_compressed(self, header):
-        if self.image is None:
+        expected_shape = (header.num_channels, header.height, header.width)
+        if self.channels is None:
             image = np.zeros(
-                (header.height, header.width, header.num_channels),
+                expected_shape,
                 dtype=decoding.color_depth_dtype_map[header.depth])
         else:
-            image = self.image
-        image = decoding.deinterlace_image(
-            image, header.width, header.height, header.num_channels)
+            image = self.channels
+            if image.shape != expected_shape:
+                raise ValueError(
+                    "Image data size does not match file size. "
+                    "Got {}, expected {}".format(
+                        image.shape, expected_shape))
+
+        image = image.reshape(
+            (header.height * header.num_channels, header.width))
         data = decoding.compress_image(
             image, self.compression, header.depth, header.version)
         return data
@@ -69,7 +76,5 @@ class ImageData(t.HasTraits):
     @util.trace_write
     def write(self, fd, header):
         util.write_value(fd, 'H', self.compression)
-
         data = self.get_compressed(header)
-
         fd.write(data)

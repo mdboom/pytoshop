@@ -143,7 +143,7 @@ class _SectionDividerSetting(TaggedBlock):
         list(enums.SectionDividerSetting),
         default_value=enums.SectionDividerSetting.open)
     key = t.Enum(list(enums.BlendMode), allow_none=True)
-    subtype = t.Bool(allow_none=True)
+    subtype = t.Bool(None, allow_none=True)
 
     @property
     def data(self):

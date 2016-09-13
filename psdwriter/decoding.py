@@ -190,28 +190,3 @@ def compress_image(image, compression, depth, version):
     image = util.ensure_bigendian(image)
 
     return compressors[compression](image, depth, version)
-
-
-def interlace_image(image, width, height, num_channels):
-    result = np.empty(
-        (height, width, num_channels),
-        dtype=image.dtype)
-    image = image.reshape((num_channels, height, width))
-
-    for i in range(num_channels):
-        result[:, :, i] = image[i]
-
-    return result
-
-
-def deinterlace_image(image, width, height, num_channels):
-    result = np.empty(
-        (num_channels, height, width),
-        dtype=image.dtype)
-
-    for i in range(num_channels):
-        result[i] = image[:, :, i]
-
-    result = result.reshape((height * num_channels, width))
-
-    return result

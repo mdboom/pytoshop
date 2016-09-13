@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+import collections
 import struct
 
 
@@ -382,8 +383,6 @@ class LayerRecord(t.HasTraits):
     left = t.Int()
     bottom = t.Int()
     right = t.Int()
-    # TODO: Make "channels" the canonical representation
-    channel_ids = t.List(t.Enum(list(enums.ChannelId)))
     blend_mode = t.Enum(list(enums.BlendMode),
                         default_value=enums.BlendMode.normal)
     opacity = t.Int(255, min=0, max=255)
@@ -394,7 +393,7 @@ class LayerRecord(t.HasTraits):
     mask = t.Instance(LayerMask)
     blending_ranges = t.Instance(BlendingRanges)
     name = t.Unicode(min=0, max=255, default_value='')
-    channel_data = t.List(t.Instance(ChannelImageData))
+    channels = t.Dict()
     blocks = t.List(t.Instance(tagged_block.TaggedBlock))
 
     @t.default('mask')
@@ -404,6 +403,25 @@ class LayerRecord(t.HasTraits):
     @t.default('blending_ranges')
     def _default_blending_ranges(self):
         return BlendingRanges()
+
+    @t.validate('channels')
+    def _validate_channels(self, proposal):
+        value = proposal['value']
+
+        for key, val in value.items():
+            try:
+                enums.ChannelId(key)
+            except ValueError as e:
+                raise t.TraitError(str(e))
+
+            if not isinstance(val, ChannelImageData):
+                raise t.TraitError(
+                    "Each channel must be ChannelImageData instance")
+
+        value = collections.OrderedDict(
+            sorted([(k, v) for (k, v) in value.items()]))
+
+        return value
 
     @property
     def width(self):
@@ -425,16 +443,12 @@ class LayerRecord(t.HasTraits):
     def blocks_map(self):
         return dict((x.code, x) for x in self.blocks)
 
-    @property
-    def channels(self):
-        return dict(zip(self.channel_ids, self.channel_data))
-
     def length(self, header):
         length = 16 + 2
         if header.version == 1:
-            length += len(self.channel_ids) * 6
+            length += len(self.channels) * 6
         else:
-            length += len(self.channel_ids) * 10
+            length += len(self.channels) * 10
         length += 4 + 4 + 1 + 1 + 1 + 1 + 4
         if self.mask is not None:
             length += self.mask.total_length(header)
@@ -449,7 +463,7 @@ class LayerRecord(t.HasTraits):
     total_length = length
 
     def total_data_length(self, header):
-        return sum(x.total_length(header, self) for x in self.channel_data)
+        return sum(x.total_length(header, self) for x in self.channels.values())
 
     @classmethod
     @util.trace_read
@@ -516,7 +530,6 @@ class LayerRecord(t.HasTraits):
             left=left,
             bottom=bottom,
             right=right,
-            channel_ids=channel_ids,
             blend_mode=blend_mode,
             opacity=opacity,
             clipping=clipping,
@@ -529,27 +542,25 @@ class LayerRecord(t.HasTraits):
             blocks=blocks)
 
         result._channel_data_lengths = channel_data_lengths
+        result._channel_ids = channel_ids
         return result
 
     def read_channel_data(self, fd, header):
-        for channel_length in self._channel_data_lengths:
-            self.channel_data.append(
-                ChannelImageData.read(fd, header, self, channel_length - 2))
+        channels = collections.OrderedDict()
+        for channel_id, channel_length in zip(
+                self._channel_ids, self._channel_data_lengths):
+            channels[channel_id] = ChannelImageData.read(
+                fd, header, self, channel_length - 2)
+        self.channels = channels
 
     @util.trace_write
     def write(self, fd, header):
-        if len(self.channel_ids) != len(self.channel_data):
-            raise ValueError(
-                "Mismatched number of channel ids ({}) "
-                "and channel data ({})".format(
-                    len(self.channel_ids), len(self.channel_data)))
-
         fd.write(struct.pack('>iiii',
                  self.top, self.left, self.bottom, self.right))
-        util.write_value(fd, 'H', len(self.channel_ids))
-        for channel_id, image in zip(self.channel_ids, self.channel_data):
+        util.write_value(fd, 'H', len(self.channels))
+        for channel_id, channel in self.channels.items():
             util.write_value(fd, 'h', channel_id)
-            util.write_value(fd, 'I', image.total_length(header, self))
+            util.write_value(fd, 'I', channel.total_length(header, self))
         fd.write(b'8BIM')
         fd.write(self.blend_mode)
         util.write_value(fd, 'B', self.opacity)
@@ -578,15 +589,15 @@ class LayerRecord(t.HasTraits):
             block.write(fd, header)
 
     def write_channel_data(self, fd, header):
-        for data in self.channel_data:
+        for data in self.channels.values():
             data.write(fd, header, self)
 
     def _start_write(self):
-        for data in self.channel_data:
+        for data in self.channels.values():
             data._start_write()
 
     def _end_write(self):
-        for data in self.channel_data:
+        for data in self.channels.values():
             data._end_write()
 
 

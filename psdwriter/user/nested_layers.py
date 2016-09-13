@@ -13,12 +13,7 @@ from .. import layers as l
 from .. import tagged_block
 
 
-# TODO: Do we need to track index and id?
-
-
 class Layer(t.HasTraits):
-    id = t.Int()
-    index = t.Int()
     name = t.Unicode()
     blend_mode = t.Enum(list(enums.BlendMode),
                         default_value=enums.BlendMode.normal)
@@ -89,8 +84,6 @@ def psd_to_nested_layers(psdfile):
                                 enums.SectionDividerSetting.open):
                 # group begins
                 group = GroupLayer(
-                    id=layer_id,
-                    index=index,
                     name=name,
                     closed=(
                         divider.type == enums.SectionDividerSetting.closed),
@@ -108,8 +101,6 @@ def psd_to_nested_layers(psdfile):
                     layer = layers[0]
 
                     group = GroupLayer(
-                        id=layer.id,
-                        index=layer.index,
                         name=layer.name,
                         closed=False,
                         blend_mode=layer.blend_mode,
@@ -129,18 +120,13 @@ def psd_to_nested_layers(psdfile):
 
         else:
             layer = ImageLayer(
-                id=layer_id,
-                index=index,
                 name=name,
-
                 top=layer.top,
                 left=layer.left,
                 bottom=layer.bottom,
                 right=layer.right,
-
                 channels=dict(
                     (k, v.image) for (k, v) in layer.channels.items()),
-
                 blend_mode=blend_mode,
                 visible=visible,
                 opacity=opacity
@@ -160,7 +146,6 @@ itemsize_to_depth = {
 def _flatten_layers(layers, flat_layers, compression):
     for layer in layers:
         if isinstance(layer, GroupLayer):
-            id = len(flat_layers)
             if layer.closed:
                 divider_type = enums.SectionDividerSetting.closed
             else:
@@ -174,7 +159,7 @@ def _flatten_layers(layers, flat_layers, compression):
                     blocks=[
                         tagged_block.UnicodeLayerName(name=layer.name),
                         tagged_block.SectionDividerSetting(type=divider_type),
-                        tagged_block.LayerId(id=id)
+                        tagged_block.LayerId(id=len(flat_layers))
                     ]
                 )
             )
@@ -186,17 +171,15 @@ def _flatten_layers(layers, flat_layers, compression):
                     blocks=[
                         tagged_block.SectionDividerSetting(
                             type=enums.SectionDividerSetting.bounding),
-                        tagged_block.LayerNameSource(id=id)
+                        tagged_block.LayerNameSource(id=len(flat_layers))
                     ]
                 )
             )
 
         elif isinstance(layer, ImageLayer):
-            channels = list(layer.channels.items())
-            channel_ids, images = zip(*channels)
-            channel_data = [
-                l.ChannelImageData(image=im, compression=compression)
-                for im in images]
+            channels = dict(
+                (id, l.ChannelImageData(image=im, compression=compression))
+                for (id, im) in layer.channels.items())
             flat_layers.append(
                 l.LayerRecord(
                     top=layer.top,
@@ -207,8 +190,7 @@ def _flatten_layers(layers, flat_layers, compression):
                     blend_mode=layer.blend_mode,
                     opacity=layer.opacity,
                     visible=layer.visible,
-                    channel_ids=channel_ids,
-                    channel_data=channel_data,
+                    channels=channels,
                     blocks=[
                         tagged_block.UnicodeLayerName(name=layer.name),
                         tagged_block.LayerId(id=len(flat_layers))
@@ -290,9 +272,9 @@ def nested_layers_to_psd(
             depth=depth,
             color_mode=color_mode
         ),
-        layers=l.LayerAndMaskInfo(
+        layer_and_mask_info=l.LayerAndMaskInfo(
             layer_info=l.LayerInfo(
-                layers=flat_layers
+                layer_records=flat_layers
             )
         )
     )
