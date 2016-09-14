@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
 
+"""
+The `ImageData` section.
+"""
+
+
 import struct
 
 
@@ -8,16 +13,28 @@ import numpy as np
 import traitlets as t
 
 
-from . import decoding
+from . import codecs
 from . import enums
 from . import util
 
 
 class ImageData(t.HasTraits):
+    """
+    Stores (non-layer) image data.
+    """
     compression = t.Enum(
         list(enums.Compression),
-        default_value=enums.Compression.raw)
-    channels = t.Instance(np.ndarray, allow_none=True)
+        default_value=enums.Compression.raw,
+        help="Compression method. See `enums.Compression`"
+    )
+    channels = t.Instance(
+        np.ndarray,
+        allow_none=True,
+        help="The color channels in the image. "
+        "A Numpy array of shape (num_channels, height, width). "
+        "Must by unsigned integer and match the bit depth of the "
+        "file as a whole."
+    )
 
     @t.validate('channels')
     def _valid_channels(self, proposal):
@@ -41,7 +58,7 @@ class ImageData(t.HasTraits):
         util.log("compression: {}", enums.Compression(compression))
 
         data = fd.read()
-        image = decoding.decompress_image(
+        image = codecs.decompress_image(
             data, compression,
             (header.height * header.num_channels, header.width),
             header.depth, header.version)
@@ -55,7 +72,7 @@ class ImageData(t.HasTraits):
         if self.channels is None:
             image = np.zeros(
                 expected_shape,
-                dtype=decoding.color_depth_dtype_map[header.depth])
+                dtype=codecs.color_depth_dtype_map[header.depth])
         else:
             image = self.channels
             if image.shape != expected_shape:
@@ -66,7 +83,7 @@ class ImageData(t.HasTraits):
 
         image = image.reshape(
             (header.height * header.num_channels, header.width))
-        data = decoding.compress_image(
+        data = codecs.compress_image(
             image, self.compression, header.depth, header.version)
         return data
 

@@ -1,9 +1,8 @@
 pip==8.1.2
 wheel==0.29.0
-watchdog==0.8.3
 flake8==2.6.0
 coverage==4.1
 Sphinx==1.4.4
-
+bumpversion==0.5.3
 pytest==2.9.2
 pytest-cov==2.3.0

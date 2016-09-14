@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
 
+"""
+Sections related to image layers.
+"""
+
+
 import collections
 import struct
 
@@ -9,26 +14,67 @@ import numpy as np
 import traitlets as t
 
 
-from . import decoding
+from . import blending_range
+from . import codecs
+from . import docs
 from . import enums
 from . import tagged_block
 from . import util
 
 
 class LayerMask(t.HasTraits):
-    top = t.Int()
-    left = t.Int()
-    bottom = t.Int()
-    right = t.Int()
-    default_color = t.Bool(False)
-    position_relative_to_layer = t.Bool(False)
-    layer_mask_disabled = t.Bool(False)
-    invert_layer_mask_when_blending = t.Bool(False)
-    user_mask_from_rendering_other_data = t.Bool(False)
-    user_mask_density = t.Int(None, min=0, max=255, allow_none=True)
-    user_mask_feather = t.Float(None, allow_none=True)
-    vector_mask_density = t.Int(None, min=0, max=255, allow_none=True)
-    vector_mask_feather = t.Float(None, allow_none=True)
+    """
+    Layer mask / adjustment layer data.
+    """
+    top = t.Int(
+        help="Top of rectangle enclosing layer mask"
+    )
+    left = t.Int(
+        help="Left of rectangle enclosing layer mask"
+    )
+    bottom = t.Int(
+        help="Bottom of rectangle enclosing layer mask"
+    )
+    right = t.Int(
+        help="Right of rectangle enclosing layer mask"
+    )
+    default_color = t.Bool(
+        False,
+        help="Default color for mask"
+    )
+    position_relative_to_layer = t.Bool(
+        False,
+        help="position relative to layer"
+    )
+    layer_mask_disabled = t.Bool(
+        False,
+        help="Layer mask disabled"
+    )
+    invert_layer_mask_when_blending = t.Bool(
+        False,
+        help="Invert layer mask when blending (obsolete)"
+    )
+    user_mask_from_rendering_other_data = t.Bool(
+        False,
+        help="Indicates that the user mask actually came from rendering other "
+             "data"
+    )
+    user_mask_density = t.Int(
+        None, min=0, max=255, allow_none=True,
+        help="User mask density"
+    )
+    user_mask_feather = t.Float(
+        None, allow_none=True,
+        help="User mask feather"
+    )
+    vector_mask_density = t.Int(
+        None, min=0, max=255, allow_none=True,
+        help="Vector mask density"
+    )
+    vector_mask_feather = t.Float(
+        None, allow_none=True,
+        help="Vector mask feather"
+    )
     real_flags = t.Int()
     real_background_color = t.Bool()
     real_top = t.Int()
@@ -53,9 +99,11 @@ class LayerMask(t.HasTraits):
                 length += 8
         length += 1 + 1 + 16
         return length
+    length.__doc__ = docs.length
 
     def total_length(self, header):
         return 4 + self.length(header)
+    total_length.__doc__ = docs.total_length
 
     def _get_mask_flags(self):
         mask_flags = 0
@@ -136,6 +184,7 @@ class LayerMask(t.HasTraits):
         fd.seek(end)
 
         return cls(**d)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header):
@@ -188,126 +237,13 @@ class LayerMask(t.HasTraits):
         write_default_color(self.real_background_color)
         write_rectangle(self.real_top, self.real_left,
                         self.real_bottom, self.real_right)
-
-
-class BlendingRange(t.HasTraits):
-    black0 = t.Int(min=0, max=255)
-    black1 = t.Int(min=0, max=255)
-    white0 = t.Int(min=0, max=255)
-    white1 = t.Int(min=0, max=255)
-
-    def length(self, header):
-        return 4
-
-    total_length = length
-
-    @classmethod
-    @util.trace_read
-    def read(cls, fd, header):
-        black0, black1, white0, white1 = struct.unpack('>BBBB', fd.read(4))
-
-        util.log(
-            "black: ({}, {}), white: ({}, {})",
-            black0, black1, white0, white1)
-
-        return cls(
-            black0=black0,
-            black1=black1,
-            white0=white0,
-            white1=white1)
-
-    @util.trace_write
-    def write(self, fd, header):
-        fd.write(struct.pack(
-            '>BBBB', self.black0, self.black1, self.white0, self.white1))
-
-
-class BlendingRangePair(t.HasTraits):
-    src = t.Instance(BlendingRange)
-    dst = t.Instance(BlendingRange)
-
-    @t.default('src')
-    def _default_src(self):
-        return BlendingRange()
-
-    @t.default('dst')
-    def _default_dst(self):
-        return BlendingRange()
-
-    def length(self, header):
-        return 8
-
-    total_length = length
-
-    @classmethod
-    @util.trace_read
-    def read(cls, fd, header):
-        src = BlendingRange.read(fd, header)
-        dst = BlendingRange.read(fd, header)
-
-        return cls(src=src,
-                   dst=dst)
-
-    @util.trace_write
-    def write(self, fd, header):
-        self.src.write(fd, header)
-        self.dst.write(fd, header)
-
-
-class BlendingRanges(t.HasTraits):
-    composite_gray_blend = t.Instance(BlendingRangePair, allow_none=True)
-    channels = t.List(t.Instance(BlendingRangePair))
-
-    def length(self, header):
-        if (self.composite_gray_blend is not None or
-                len(self.channels)):
-            if self.composite_gray_blend is None:
-                composite_gray_blend = BlendingRangePair()
-            else:
-                composite_gray_blend = self.composite_gray_blend
-            return (
-                composite_gray_blend.total_length(header) +
-                sum(x.total_length(header) for x in self.channels))
-        return 0
-
-    def total_length(self, header):
-        return 4 + self.length(header)
-
-    @classmethod
-    @util.trace_read
-    def read(cls, fd, header, num_channels):
-        length = util.read_value(fd, 'I')
-        end = fd.tell() + length
-        util.log("length: {}, end: {}", length, end)
-        if length == 0:
-            return cls()
-
-        composite_gray_blend = BlendingRangePair.read(fd, header)
-        channels = []
-        while fd.tell() < end:
-            channels.append(BlendingRangePair.read(fd, header))
-
-        fd.seek(end)
-
-        return cls(
-            composite_gray_blend=composite_gray_blend,
-            channels=channels)
-
-    @util.trace_write
-    def write(self, fd, header):
-        util.write_value(fd, 'I', self.length(header))
-        if (self.composite_gray_blend is not None or
-                len(self.channels)):
-            if self.composite_gray_blend is None:
-                composite_gray_blend = BlendingRangePair()
-            else:
-                composite_gray_blend = self.composite_gray_blend
-            composite_gray_blend.write(fd, header)
-            for channel in self.channels:
-                channel.write(fd, header)
+    write.__doc__ = docs.write
 
 
 class ChannelImageData(t.HasTraits):
+    """
+    A single plane of channel image data.
+    """
     def __init__(self, **kwargs):
         t.HasTraits.__init__(self, **kwargs)
         self._writing = False
@@ -315,8 +251,16 @@ class ChannelImageData(t.HasTraits):
 
     compression = t.Enum(
         list(enums.Compression),
-        default_value=enums.Compression.zip)
-    image = t.Instance(np.ndarray, allow_none=True)
+        default_value=enums.Compression.zip,
+        help="Compression method. See `enums.Compression`."
+    )
+    image = t.Instance(
+        np.ndarray, allow_none=True,
+        help="2-D Numpy array of a single plane of image data. "
+             "Must be of shape ``(height, width)`` corresponding to the size "
+             "of the layer.  Must be unsigned int with a bit depth matching "
+             "that of the whole PSD file."
+    )
 
     @t.validate('image')
     def _valid_image(self, proposal):
@@ -328,20 +272,22 @@ class ChannelImageData(t.HasTraits):
         return value
 
     def length(self, header, layer_record):
-        return len(self.get_compressed(header, layer_record))
+        return len(self._get_compressed(header, layer_record))
+    length.__doc__ = docs.length
 
     def total_length(self, header, layer_record):
         return 2 + self.length(header, layer_record)
+    total_length.__doc__ = docs.total_length
 
-    def get_compressed(self, header, layer_record):
+    def _get_compressed(self, header, layer_record):
         if self._compressed is None:
             if self.image is None:
                 image = np.zeros(
                     layer_record.shape,
-                    dtype=decoding.color_depth_dtype_map[header.depth])
+                    dtype=codecs.color_depth_dtype_map[header.depth])
             else:
                 image = self.image
-            compressed = decoding.compress_image(
+            compressed = codecs.compress_image(
                 image, self.compression, header.depth, header.version)
             if self._writing:
                 self._compressed = compressed
@@ -354,10 +300,11 @@ class ChannelImageData(t.HasTraits):
         compression = util.read_value(fd, 'H')
         util.log("compression: {}", enums.Compression(compression))
         data = fd.read(size)
-        image = decoding.decompress_image(
+        image = codecs.decompress_image(
             data, compression, layer_record.shape, header.depth,
             header.version)
         return cls(image=image, compression=compression)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header, layer_record):
@@ -369,35 +316,85 @@ class ChannelImageData(t.HasTraits):
                     layer_record.shape, self.image.shape))
 
         util.write_value(fd, 'H', self.compression)
-        compressed = self.get_compressed(header, layer_record)
+        compressed = self._get_compressed(header, layer_record)
         fd.write(compressed)
+    write.__doc__ = docs.write
 
     def _start_write(self):
+        # Assume the data won't change underneath us so we can cache
+        # the compressed data
         self._writing = True
         self._compressed = None
 
     def _end_write(self):
+        # Allow data to change underneath us, so stop caching the
+        # compressed data
         self._writing = False
         self._compressed = None
 
 
 class LayerRecord(t.HasTraits):
-    top = t.Int()
-    left = t.Int()
-    bottom = t.Int()
-    right = t.Int()
-    blend_mode = t.Enum(list(enums.BlendMode),
-                        default_value=enums.BlendMode.normal)
-    opacity = t.Int(255, min=0, max=255)
-    clipping = t.Bool(False)
-    transparency_protected = t.Bool(False)
-    visible = t.Bool(True)
-    pixel_data_irrelevant = t.Bool(False)
-    mask = t.Instance(LayerMask)
-    blending_ranges = t.Instance(BlendingRanges)
-    name = t.Unicode(min=0, max=255, default_value='')
-    channels = t.Dict()
-    blocks = t.List(t.Instance(tagged_block.TaggedBlock))
+    """
+    Layer record.
+
+    There is one of these per logical layer in the file.
+    """
+    top = t.Int(
+        help="Top of the rectangle containing the layer."
+    )
+    left = t.Int(
+        help="Left of the rectangle containing the layer."
+    )
+    bottom = t.Int(
+        help="Bottom of the rectangle containing the layer."
+    )
+    right = t.Int(
+        help="Right of the rectangle containing the layer."
+    )
+    blend_mode = t.Enum(
+        list(enums.BlendMode), default_value=enums.BlendMode.normal,
+        help="Blend mode. See `enums.BlendMode`"
+    )
+    opacity = t.Int(
+        255, min=0, max=255,
+        help="Opacity. 0=transparent, 255=opaque"
+    )
+    clipping = t.Bool(
+        False,
+        help="Clipping. False=base, True=non-base"
+    )
+    transparency_protected = t.Bool(
+        False,
+        help="Transparency protected"
+    )
+    visible = t.Bool(
+        True,
+        help="Visible"
+    )
+    pixel_data_irrelevant = t.Bool(
+        False,
+        help="Pixel data is irrelevant to appearance of document"
+    )
+    mask = t.Instance(
+        LayerMask,
+        help="`LayerMask`"
+    )
+    blending_ranges = t.Instance(
+        blending_range.BlendingRanges,
+        help='`blending_range.BlendingRanges`'
+    )
+    name = t.Unicode(
+        min=0, max=255, default_value='',
+        help="Name of layer"
+    )
+    channels = t.Dict(
+        help="Dictionary from `enums.ChannelId` to `ChannelImageData`."
+    )
+    blocks = t.List(
+        t.Instance(tagged_block.TaggedBlock),
+        help="List of `tagged_block.TaggedBlock` items with additional "
+             "information about this layer."
+    )
 
     @t.default('mask')
     def _default_mask(self):
@@ -405,7 +402,7 @@ class LayerRecord(t.HasTraits):
 
     @t.default('blending_ranges')
     def _default_blending_ranges(self):
-        return BlendingRanges()
+        return blending_range.BlendingRanges()
 
     @t.validate('channels')
     def _validate_channels(self, proposal):
@@ -428,18 +425,34 @@ class LayerRecord(t.HasTraits):
 
     @property
     def width(self):
+        """
+        Width of the layer.
+        """
         return self.right - self.left
 
     @property
     def height(self):
+        """
+        Height of the layer.
+        """
         return self.bottom - self.top
 
     @property
     def shape(self):
+        """
+        Shape of the layer ``(height, width)``.
+        """
         return (self.height, self.width)
 
     @property
     def blocks_map(self):
+        """
+        A mapping from tagged block codes to
+        `tagged_block.TaggedBlock` instances.
+
+        This is a convenience to more easily get associated tagged
+        blocks.
+        """
         return dict((x.code, x) for x in self.blocks)
 
     def length(self, header):
@@ -458,10 +471,17 @@ class LayerRecord(t.HasTraits):
         for block in self.blocks:
             length += block.total_length(header)
         return length
+    length.__doc__ = docs.length
 
-    total_length = length
+    def total_length(self, header):
+        return self.length(header)
+    total_length.__doc__ = docs.total_length
 
     def total_data_length(self, header):
+        """
+        The total length of the `ChannelImageData` associated with
+        this layer.
+        """
         return sum(x.total_length(header, self)
                    for x in self.channels.values())
 
@@ -513,7 +533,8 @@ class LayerRecord(t.HasTraits):
         util.log("extra_length: {}, end: {}", extra_length, end)
 
         mask = LayerMask.read(fd, header)
-        blending_ranges = BlendingRanges.read(fd, header, num_channels)
+        blending_ranges = blending_range.BlendingRanges.read(
+            fd, header, num_channels)
         name = util.read_pascal_string(fd, 4)
 
         util.log("name: '{}'", name)
@@ -544,8 +565,12 @@ class LayerRecord(t.HasTraits):
         result._channel_data_lengths = channel_data_lengths
         result._channel_ids = channel_ids
         return result
+    read.__func__.__doc__ = docs.read
 
     def read_channel_data(self, fd, header):
+        """
+        Read the `ChannelImageData` for this layer.
+        """
         channels = collections.OrderedDict()
         for channel_id, channel_length in zip(
                 self._channel_ids, self._channel_data_lengths):
@@ -590,8 +615,12 @@ class LayerRecord(t.HasTraits):
         util.write_pascal_string(fd, self.name, 4)
         for block in self.blocks:
             block.write(fd, header)
+    write.__doc__ = docs.write
 
     def write_channel_data(self, fd, header):
+        """
+        Write the `ChannelImageData` for this layer.
+        """
         for data in self.channels.values():
             data.write(fd, header, self)
 
@@ -605,8 +634,18 @@ class LayerRecord(t.HasTraits):
 
 
 class LayerInfo(t.HasTraits):
-    layer_records = t.List(t.Instance(LayerRecord))
-    use_alpha_channel = t.Bool(True)
+    """
+    A set of `LayerRecord` instances.
+    """
+    layer_records = t.List(
+        t.Instance(LayerRecord),
+        help="List of `LayerRecord` instances"
+    )
+    use_alpha_channel = t.Bool(
+        True,
+        help="Indicates that the first channel contains transparency data for "
+             "the merged result."
+    )
 
     def length(self, header):
         if len(self.layer_records):
@@ -616,12 +655,14 @@ class LayerInfo(t.HasTraits):
                 sum(x.total_data_length(header) for x in self.layer_records))
         else:
             return 0
+    length.__doc__ = docs.length
 
     def total_length(self, header):
         if header.version == 1:
             return 4 + self.length(header)
         else:
             return 8 + self.length(header)
+    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read
@@ -657,6 +698,7 @@ class LayerInfo(t.HasTraits):
                 use_alpha_channel=use_alpha_channel)
         else:
             return cls()
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     @util.pad_block
@@ -682,23 +724,37 @@ class LayerInfo(t.HasTraits):
         finally:
             for layer in self.layer_records:
                 layer._end_write()
+    write.__doc__ = docs.write
 
 
 class GlobalLayerMaskInfo(t.HasTraits):
-    overlay_color_space = t.Bytes(b'\0' * 10, min=10, max=10)
-    opacity = t.Int(100, min=0, max=100)
+    """
+    Global layer mask info.
+    """
+    overlay_color_space = t.Bytes(
+        b'\0' * 10, min=10, max=10,
+        help="Undocumented"
+    )
+    opacity = t.Int(
+        100, min=0, max=100,
+        help="Opacity. 0=transparent, 100=opaque"
+    )
     kind = t.Enum(
-        list(enums.GlobalLayerMaskKind),
-        default_value=enums.GlobalLayerMaskKind.use_value_stored_per_layer)
+        list(enums.LayerMaskKind),
+        default_value=enums.LayerMaskKind.use_value_stored_per_layer,
+        help="Layer mask kind. See `enums.LayerMaskKind`"
+    )
 
     def length(self, header):
         if util.is_set_to_default(self):
             return 0
         else:
             return 16
+    length.__doc__ = docs.length
 
     def total_length(self, header):
         return 4 + self.length(header)
+    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read
@@ -724,6 +780,7 @@ class GlobalLayerMaskInfo(t.HasTraits):
             overlay_color_space=overlay_color_space,
             opacity=opacity,
             kind=kind)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header):
@@ -735,12 +792,25 @@ class GlobalLayerMaskInfo(t.HasTraits):
             util.write_value(fd, 'H', self.opacity)
             util.write_value(fd, 'B', self.kind)
             fd.write(b'\0\0\0')  # filler
+    write.__doc__ = docs.write
 
 
 class LayerAndMaskInfo(t.HasTraits):
-    layer_info = t.Instance(LayerInfo)
-    global_layer_mask_info = t.Instance(GlobalLayerMaskInfo, allow_none=True)
-    additional_layer_info = t.List(t.Instance(tagged_block.TaggedBlock))
+    """
+    Layer and mask information section.
+    """
+    layer_info = t.Instance(
+        LayerInfo,
+        help="Layer info. See `LayerInfo`."
+    )
+    global_layer_mask_info = t.Instance(
+        GlobalLayerMaskInfo, allow_none=True,
+        help="Global layer mask info. See `GlobalLayerMaskInfo`."
+    )
+    additional_layer_info = t.List(
+        t.Instance(tagged_block.TaggedBlock),
+        help="List of additional layer info. See `TaggedBlock`."
+    )
 
     @t.default('layer_info')
     def _default_layer_info(self):
@@ -758,15 +828,24 @@ class LayerAndMaskInfo(t.HasTraits):
             length += sum(
                 x.total_length(header, 4) for x in self.additional_layer_info)
         return length
+    length.__doc__ = docs.length
 
     def total_length(self, header):
         if header.version == 1:
             return 4 + self.length(header)
         else:
             return 8 + self.length(header)
+    total_length.__doc__ = docs.total_length
 
     @property
     def additional_layer_info_map(self):
+        """
+        A mapping from tagged block codes to
+        `tagged_block.TaggedBlock` instances.
+
+        This is a convenience to more easily get associated tagged
+        blocks.
+        """
         return dict((x.code, x) for x in self.additional_layer_info)
 
     @classmethod
@@ -794,6 +873,7 @@ class LayerAndMaskInfo(t.HasTraits):
         return cls(layer_info=layer_info,
                    global_layer_mask_info=global_layer_mask_info,
                    additional_layer_info=additional_layer_info)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header):
@@ -812,3 +892,4 @@ class LayerAndMaskInfo(t.HasTraits):
             global_layer_mask_info.write(fd, header)
             for layer_info in self.additional_layer_info:
                 layer_info.write(fd, header, 4)
+    write.__doc__ = docs.write

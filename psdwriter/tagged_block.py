@@ -1,17 +1,26 @@
 # -*- coding: utf-8 -*-
 
 
+"""
+`TaggedBlock` objects.
+"""
+
+
 import struct
 
 
 import traitlets as t
 
 
+from . import docs
 from . import enums
 from . import util
 
 
 class _TaggedBlockMeta(type(t.HasTraits)):
+    """
+    A mtaclass that builds a mapping of subclasses.
+    """
     mapping = {}
 
     def __new__(cls, name, parents, dct):
@@ -31,6 +40,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
 
     def length(self, header):
         return len(self.data)
+    length.__doc__ = docs.length
 
     def total_length(self, header, padding=1):
         length = 8
@@ -40,6 +50,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
             length += 4
         length += util.pad(self.length(header), padding)
         return length
+    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read
@@ -66,6 +77,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
         fd.seek(padded_length - length, 1)
 
         return new_cls.read(code, data)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header, padding=1):
@@ -82,20 +94,35 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
             util.write_value(fd, 'I', length)
         fd.write(self.data)
         fd.write(b'\0' * (padded_length - length))
+    write.__doc__ = docs.write
 
 
 class GenericTaggedBlock(TaggedBlock):
-    code = t.Bytes(min=4, max=4)
-    data = t.Bytes(b'')
+    """
+    A generic `TaggedBlock` subclass for tag codes ``psdwriter``
+    doesn't know about.
+    """
+
+    code = t.Bytes(
+        min=4, max=4,
+        help="The 4-letter tagged block code"
+    )
+    data = t.Bytes(
+        b'',
+        help="The raw data for the block"
+    )
 
     @classmethod
     def read(cls, code, data):
         return cls(code=code, data=data)
+    read.__func__.__doc__ = docs.read
 
 
 class UnicodeLayerName(TaggedBlock):
     code = b'luni'
-    name = t.Unicode('')
+    name = t.Unicode(
+        help="The name of the layer."
+    )
 
     @property
     def data(self):
@@ -106,11 +133,14 @@ class UnicodeLayerName(TaggedBlock):
         name = util.decode_unicode_string(data)
         util.log('name: {}', name)
         return cls(name=name)
+    read.__func__.__doc__ = docs.read
 
 
 class LayerId(TaggedBlock):
     code = b'lyid'
-    id = t.Int(0)
+    id = t.Int(
+        help="Layer id"
+    )
 
     @property
     def data(self):
@@ -121,11 +151,14 @@ class LayerId(TaggedBlock):
         id, = struct.unpack('>I', data)
         util.log('id: {}', id)
         return cls(id=id)
+    read.__func__.__doc__ = docs.read
 
 
 class LayerNameSource(TaggedBlock):
     code = b'lnsr'
-    id = t.Int(0)
+    id = t.Int(
+        help="The layer id of the source of the name of this layer"
+    )
 
     @property
     def data(self):
@@ -136,14 +169,24 @@ class LayerNameSource(TaggedBlock):
         id, = struct.unpack('>I', data)
         util.log('id: {}', id)
         return cls(id=id)
+    read.__func__.__doc__ = docs.read
 
 
 class _SectionDividerSetting(TaggedBlock):
     type = t.Enum(
         list(enums.SectionDividerSetting),
-        default_value=enums.SectionDividerSetting.open)
-    key = t.Enum(list(enums.BlendMode), allow_none=True)
-    subtype = t.Bool(None, allow_none=True)
+        default_value=enums.SectionDividerSetting.open,
+        help="Section divider type. See `enums.SectionDividerSetting`."
+    )
+    key = t.Enum(
+        list(enums.BlendMode), allow_none=True,
+        help="Section divider key"
+    )
+    subtype = t.Bool(
+        None, allow_none=True,
+        help="Section divider subtype. False=normal, True=Scene group, "
+        "affects the animation timeline"
+    )
 
     @property
     def data(self):
@@ -173,6 +216,7 @@ class _SectionDividerSetting(TaggedBlock):
         util.log('type: {}, key: {}, subtype: {}', type, key, subtype)
 
         return cls(type=type, key=key, subtype=subtype)
+    read.__func__.__doc__ = docs.read
 
 
 class SectionDividerSetting(_SectionDividerSetting):

@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
 
+"""
+The core objects, including the `PsdFile` and its `Header`.
+"""
+
+
 import struct
 
 
@@ -8,6 +13,7 @@ import traitlets as t
 
 
 from . import color_mode
+from . import docs
 from . import enums
 from . import image_data
 from . import image_resources
@@ -16,29 +22,48 @@ from . import util
 
 
 class Header(t.HasTraits):
+    """
+    Manages the header at the start of a PSD/PSB file.
+    """
+
     version = t.Enum(
         list(enums.Version),
-        default_value=enums.Version.version_1)
-    num_channels = t.Int(1, min=1, max=56)
-    height = t.Int(1, min=1, max=300000)
-    width = t.Int(1, min=1, max=300000)
+        default_value=enums.Version.version_1,
+        help="The version of the file format. See `enums.Version`."
+    )
+    num_channels = t.Int(
+        1, min=1, max=56,
+        help="Number of color channels in the file."
+    )
+    height = t.Int(
+        1, min=1, max=300000,
+        help="Height of the image (in pixels)."
+    )
+    width = t.Int(
+        1, min=1, max=300000,
+        help="Width of the image (in pixels)."
+    )
     depth = t.Enum(
         list(enums.ColorDepth),
-        default_value=enums.ColorDepth.depth8)
+        default_value=enums.ColorDepth.depth8,
+        help="Number of bits per channel. See `enums.ColorDepth`."
+    )
     color_mode = t.Enum(
         list(enums.ColorMode),
-        default_value=enums.ColorMode.rgb)
+        default_value=enums.ColorMode.rgb,
+        help="Color mode of the file. See `enums.ColorMode`."
+    )
 
-    signatures = {
+    _signatures = {
         b'8BPS': 1,
         b'8BPB': 2
     }
 
-    inverse_signatures = dict((v, k) for (k, v) in signatures.items())
+    _inverse_signatures = dict((v, k) for (k, v) in _signatures.items())
 
     @property
     def signature(self):
-        return self.inverse_signatures[self.version]
+        return self._inverse_signatures[self.version]
 
     max_size_mapping = {
         1: 30000,
@@ -62,9 +87,9 @@ class Header(t.HasTraits):
         (signature, version, _reserved, num_channels,
          height, width, depth, color_mode) = struct.unpack('>4sH6sHIIHH', data)
 
-        if signature not in cls.signatures:
+        if signature not in cls._signatures:
             raise ValueError("Invalid signature '{}'".format(signature))
-        if cls.signatures[signature] != version:
+        if cls._signatures[signature] != version:
             raise ValueError("Signature and version mismatch")
 
         util.log(
@@ -78,23 +103,49 @@ class Header(t.HasTraits):
         return cls(version=version, num_channels=num_channels,
                    width=width, height=height, depth=depth,
                    color_mode=color_mode)
+    header_read.__func__.__doc__ = docs.read_single
 
     read = header_read
 
     @util.trace_write
     def write(self, fd):
+        """
+        Write to a file-like object.
+
+        Parameters
+        ----------
+        fd : file-like object
+            Must be writable, seekable and open in binary mode.
+        """
         data = struct.pack(
             '>4sH6sHIIHH', self.signature, self.version, b'',
             self.num_channels, self.height, self.width, self.depth,
             self.color_mode)
         fd.write(data)
+    write.__doc__ = docs.write_single
 
 
 class PsdFile(Header):
-    color_mode_data = t.Instance(color_mode.ColorModeData)
-    image_resources = t.Instance(image_resources.ImageResources)
-    layer_and_mask_info = t.Instance(layers.LayerAndMaskInfo)
-    image_data = t.Instance(image_data.ImageData)
+    """
+    Represents an entire PSD file.
+    """
+
+    color_mode_data = t.Instance(
+        color_mode.ColorModeData,
+        help='Color mode data section. See `color_mode.ColorModeData`.'
+    )
+    image_resources = t.Instance(
+        image_resources.ImageResources,
+        help='Image resources. See `image_resources.ImageResources`.'
+    )
+    layer_and_mask_info = t.Instance(
+        layers.LayerAndMaskInfo,
+        help='Layer and mask info. See `layers.LayerAndMaskInfo`.'
+    )
+    image_data = t.Instance(
+        image_data.ImageData,
+        help='Image data. See `image_data.ImageData`.'
+    )
 
     @t.default('color_mode_data')
     def _default_color_mode_data(self):
@@ -121,6 +172,7 @@ class PsdFile(Header):
         self.layer_and_mask_info = layers.LayerAndMaskInfo.read(fd, self)
         self.image_data = image_data.ImageData.read(fd, self)
         return self
+    read.__func__.__doc__ = docs.read_single
 
     @util.trace_write
     def write(self, fd):
@@ -129,3 +181,4 @@ class PsdFile(Header):
         self.image_resources.write(fd, self)
         self.layer_and_mask_info.write(fd, self)
         self.image_data.write(fd, self)
+    write.__doc__ = docs.write_single

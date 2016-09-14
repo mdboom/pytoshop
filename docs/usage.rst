@@ -2,6 +2,14 @@
 Usage
 =====
 
-To use psdwriter in a project::
+To read a file and write it back out again::
 
     import psdwriter
+
+    with open('image.psd', 'rb') as fd:
+        psd = psdwriter.read(fd)
+
+    with open('updated.psd', 'wb') as fd:
+        psd.write(fd)
+
+See the :ref:`api` documentation for more details.

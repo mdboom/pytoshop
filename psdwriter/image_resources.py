@@ -1,15 +1,41 @@
 # -*- coding: utf-8 -*-
 
+
+"""
+The `ImageResources` section.
+
+Image resource blocks are the basic building unit of several file
+formats, including Photoshop's native file format, JPEG, and
+TIFF. Image resources are used to store non-pixel data associated with
+images, such as pen tool paths.
+"""
+
+
 import traitlets as t
 
 
+from . import docs
 from . import util
 
 
 class ImageResourceBlock(t.HasTraits):
-    resource_id = t.Int()
-    name = t.Unicode(max=255)
-    data = t.Bytes(max=(1 << 32))
+    """
+    Stores a single image resource block.
+
+    ``psdwriter`` currently doesn't deeply parse image resource
+    blocks.  The raw data is merely retained for round-tripping.
+    """
+    resource_id = t.Int(
+        help="Type of image resource."
+    )
+    name = t.Unicode(
+        max=255,
+        help="Name of image resource."
+    )
+    data = t.Bytes(
+        max=(1 << 32),
+        help="Raw data of image resource."
+    )
 
     def length(self, header):
         length = (4 + 2 +
@@ -18,8 +44,11 @@ class ImageResourceBlock(t.HasTraits):
         if len(self.data) % 2 != 0:
             length += 1
         return length
+    length.__doc__ = docs.length
 
-    total_length = length
+    def total_length(self, header):
+        return self.length(header)
+    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read
@@ -40,6 +69,7 @@ class ImageResourceBlock(t.HasTraits):
             fd.read(1)
 
         return cls(resource_id=resource_id, name=name, data=data)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header):
@@ -50,16 +80,25 @@ class ImageResourceBlock(t.HasTraits):
         fd.write(self.data)
         if len(self.data) % 2 != 0:
             fd.write(b'\0')
+    write.__doc__ = docs.write
 
 
 class ImageResources(t.HasTraits):
-    blocks = t.List(t.Instance(ImageResourceBlock))
+    """
+    The image resource block section.
+    """
+    blocks = t.List(
+        t.Instance(ImageResourceBlock),
+        help="List of all `ImageResourceBlock` items."
+    )
 
     def length(self, header):
         return sum(block.total_length(header) for block in self.blocks)
+    length.__doc__ = docs.length
 
     def total_length(self, header):
         return 4 + self.length(header)
+    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read
@@ -74,9 +113,11 @@ class ImageResources(t.HasTraits):
             blocks.append(ImageResourceBlock.read(fd, header))
 
         return cls(blocks=blocks)
+    read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header):
         util.write_value(fd, 'I', self.length(header))
         for block in self.blocks:
             block.write(fd, header)
+    write.__doc__ = docs.write

@@ -1,1 +1,2 @@
+numpy==1.11
 traitlets==4.2.2
