@@ -15,18 +15,20 @@ from .. import tagged_block
 
 class Layer(t.HasTraits):
     name = t.Unicode()
-    blend_mode = t.Enum(list(enums.BlendMode),
-                        default_value=enums.BlendMode.normal)
     visible = t.Bool(default_value=True)
     opacity = t.Int(min=0, max=255)
 
 
 class GroupLayer(Layer):
+    blend_mode = t.Enum(list(enums.BlendMode),
+                        default_value=enums.BlendMode.pass_through)
     layers = t.List(t.Instance(Layer))
     closed = t.Bool()
 
 
 class ImageLayer(Layer):
+    blend_mode = t.Enum(list(enums.BlendMode),
+                        default_value=enums.BlendMode.normal)
     channels = t.Dict()
     top = t.Int()
     left = t.Int()
