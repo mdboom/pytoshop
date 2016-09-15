@@ -642,7 +642,7 @@ class LayerInfo(t.HasTraits):
         help="List of `LayerRecord` instances"
     )
     use_alpha_channel = t.Bool(
-        True,
+        False,
         help="Indicates that the first channel contains transparency data for "
              "the merged result."
     )
