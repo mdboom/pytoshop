@@ -518,7 +518,7 @@ class LayerRecord(t.HasTraits):
         clipping = bool(util.read_value(fd, 'B'))
         flags = util.read_value(fd, 'B')
         transparency_protected = bool(flags & 1)
-        visible = bool(flags & 2)
+        visible = not bool(flags & 2)
         pixel_data_irrelevant = bool(flags & 16)
         fd.seek(1, 1)  # filler
 
@@ -596,7 +596,7 @@ class LayerRecord(t.HasTraits):
         flags = 8
         if self.transparency_protected:
             flags |= 1
-        if self.visible:
+        if not self.visible:
             flags |= 2
         if self.pixel_data_irrelevant:
             flags |= 16
