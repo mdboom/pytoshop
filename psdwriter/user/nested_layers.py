@@ -27,11 +27,11 @@ class Layer(t.HasTraits):
         help="The name of the layer"
     )
     visible = t.Bool(
-        default_value=True,
+        True,
         help="Is layer visible?"
     )
     opacity = t.Int(
-        min=0, max=255,
+        255, min=0, max=255,
         opacity="Opacity. 0=transparent, 255=opaque"
     )
 
