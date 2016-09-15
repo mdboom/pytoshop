@@ -179,19 +179,6 @@ def round_up(x, base=2):
     return int(base * math.ceil(float(x) / base))
 
 
-def pad_block(func):
-    @wraps(func)
-    def wrapper(self, fd, header):
-        length = self.total_length(header)
-        end = fd.tell() + length
-        func(self, fd, header)
-        extra = end - fd.tell()
-        if extra > 0:
-            fd.write(b'\0' * extra)
-
-    return wrapper
-
-
 _indent = [0]
 
 

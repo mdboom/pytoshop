@@ -244,11 +244,6 @@ class ChannelImageData(t.HasTraits):
     """
     A single plane of channel image data.
     """
-    def __init__(self, **kwargs):
-        t.HasTraits.__init__(self, **kwargs)
-        self._writing = False
-        self._compressed = None
-
     compression = t.Enum(
         list(enums.Compression),
         default_value=enums.Compression.zip,
@@ -271,32 +266,16 @@ class ChannelImageData(t.HasTraits):
             raise ValueError("image must be unsigned integers")
         return value
 
-    def length(self, header, layer_record):
-        return len(self._get_compressed(header, layer_record))
-    length.__doc__ = docs.length
-
-    def total_length(self, header, layer_record):
-        return 2 + self.length(header, layer_record)
-    total_length.__doc__ = docs.total_length
-
     def _get_compressed(self, header, layer_record):
-        # TODO: For multi-GB files, this may be problematic Allow for
-        # caching compressed data to disk in tmp folder and then copy
-        # over on writing to the file...?
-
-        if self._compressed is None:
-            if self.image is None:
-                image = np.zeros(
-                    layer_record.shape,
-                    dtype=codecs.color_depth_dtype_map[header.depth])
-            else:
-                image = self.image
-            compressed = codecs.compress_image(
-                image, self.compression, header.depth, header.version)
-            if self._writing:
-                self._compressed = compressed
-            return compressed
-        return self._compressed
+        if self.image is None:
+            image = np.zeros(
+                layer_record.shape,
+                dtype=codecs.color_depth_dtype_map[header.depth])
+        else:
+            image = self.image
+        compressed = codecs.compress_image(
+            image, self.compression, header.depth, header.version)
+        return compressed
 
     @classmethod
     @util.trace_read
@@ -322,19 +301,8 @@ class ChannelImageData(t.HasTraits):
         util.write_value(fd, 'H', self.compression)
         compressed = self._get_compressed(header, layer_record)
         fd.write(compressed)
+        return len(compressed) + 2
     write.__doc__ = docs.write
-
-    def _start_write(self):
-        # Assume the data won't change underneath us so we can cache
-        # the compressed data
-        self._writing = True
-        self._compressed = None
-
-    def _end_write(self):
-        # Allow data to change underneath us, so stop caching the
-        # compressed data
-        self._writing = False
-        self._compressed = None
 
 
 class LayerRecord(t.HasTraits):
@@ -481,14 +449,6 @@ class LayerRecord(t.HasTraits):
         return self.length(header)
     total_length.__doc__ = docs.total_length
 
-    def total_data_length(self, header):
-        """
-        The total length of the `ChannelImageData` associated with
-        this layer.
-        """
-        return sum(x.total_length(header, self)
-                   for x in self.channels.values())
-
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
@@ -587,12 +547,11 @@ class LayerRecord(t.HasTraits):
         fd.write(struct.pack('>iiii',
                  self.top, self.left, self.bottom, self.right))
         util.write_value(fd, 'H', len(self.channels))
-        for channel_id, channel in self.channels.items():
-            util.write_value(fd, 'h', channel_id)
-            if header.version == 1:
-                util.write_value(fd, 'I', channel.total_length(header, self))
-            else:
-                util.write_value(fd, 'Q', channel.total_length(header, self))
+        self.channel_lengths_offset = fd.tell()
+        if header.version == 1:
+            fd.seek(6 * len(self.channels), 1)
+        else:
+            fd.seek(10 * len(self.channels), 1)
         fd.write(b'8BIM')
         fd.write(self.blend_mode)
         util.write_value(fd, 'B', self.opacity)
@@ -625,16 +584,19 @@ class LayerRecord(t.HasTraits):
         """
         Write the `ChannelImageData` for this layer.
         """
+        lengths = []
         for data in self.channels.values():
-            data.write(fd, header, self)
+            lengths.append(data.write(fd, header, self))
 
-    def _start_write(self):
-        for data in self.channels.values():
-            data._start_write()
-
-    def _end_write(self):
-        for data in self.channels.values():
-            data._end_write()
+        offset = fd.tell()
+        fd.seek(self.channel_lengths_offset)
+        for channel_id, length in zip(self.channels.keys(), lengths):
+            util.write_value(fd, 'h', channel_id)
+            if header.version == 1:
+                util.write_value(fd, 'I', length)
+            else:
+                util.write_value(fd, 'Q', length)
+        fd.seek(offset)
 
 
 class LayerInfo(t.HasTraits):
@@ -650,23 +612,6 @@ class LayerInfo(t.HasTraits):
         help="Indicates that the first channel contains transparency data for "
              "the merged result."
     )
-
-    def length(self, header):
-        if len(self.layer_records):
-            return util.round_up(
-                2 +
-                sum(x.total_length(header) for x in self.layer_records) +
-                sum(x.total_data_length(header) for x in self.layer_records))
-        else:
-            return 0
-    length.__doc__ = docs.length
-
-    def total_length(self, header):
-        if header.version == 1:
-            return 4 + self.length(header)
-        else:
-            return 8 + self.length(header)
-    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read
@@ -705,12 +650,13 @@ class LayerInfo(t.HasTraits):
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
-    @util.pad_block
     def write(self, fd, header):
+        start = fd.tell()
         if header.version == 1:
-            util.write_value(fd, 'I', self.length(header))
+            fd.seek(4, 1)
         else:
-            util.write_value(fd, 'Q', self.length(header))
+            fd.seek(8, 1)
+
         layer_count = len(self.layer_records)
         if layer_count == 0:
             return
@@ -721,15 +667,15 @@ class LayerInfo(t.HasTraits):
             layer.write(fd, header)
         for layer in self.layer_records:
             layer.write_channel_data(fd, header)
+
+        end = fd.tell()
+        fd.seek(start)
+        if header.version == 1:
+            util.write_value(fd, 'I', end - start - 4)
+        else:
+            util.write_value(fd, 'Q', end - start - 8)
+        fd.seek(end)
     write.__doc__ = docs.write
-
-    def _start_write(self):
-        for layer in self.layer_records:
-            layer._start_write()
-
-    def _end_write(self):
-        for layer in self.layer_records:
-            layer._end_write()
 
 
 class GlobalLayerMaskInfo(t.HasTraits):
@@ -822,7 +768,9 @@ class LayerAndMaskInfo(t.HasTraits):
         return LayerInfo()
 
     def length(self, header):
-        length = self.layer_info.total_length(header)
+        # Length doesn't include layer info, since that's calculated
+        # during write.
+        length = 0
         if (self.global_layer_mask_info is not None or
                 len(self.additional_layer_info)):
             if self.global_layer_mask_info is None:
@@ -882,24 +830,29 @@ class LayerAndMaskInfo(t.HasTraits):
 
     @util.trace_write
     def write(self, fd, header):
-        self.layer_info._start_write()
+        start = fd.tell()
 
-        try:
-            if header.version == 1:
-                util.write_value(fd, 'I', self.length(header))
+        if header.version == 1:
+            fd.seek(4, 1)
+        else:
+            fd.seek(8, 1)
+
+        self.layer_info.write(fd, header)
+        if (self.global_layer_mask_info is not None or
+            len(self.additional_layer_info)):
+            if self.global_layer_mask_info is None:
+                global_layer_mask_info = GlobalLayerMaskInfo()
             else:
-                util.write_value(fd, 'Q', self.length(header))
+                global_layer_mask_info = self.global_layer_mask_info
+            global_layer_mask_info.write(fd, header)
+            for layer_info in self.additional_layer_info:
+                layer_info.write(fd, header, 4)
 
-            self.layer_info.write(fd, header)
-            if (self.global_layer_mask_info is not None or
-                    len(self.additional_layer_info)):
-                if self.global_layer_mask_info is None:
-                    global_layer_mask_info = GlobalLayerMaskInfo()
-                else:
-                    global_layer_mask_info = self.global_layer_mask_info
-                global_layer_mask_info.write(fd, header)
-                for layer_info in self.additional_layer_info:
-                    layer_info.write(fd, header, 4)
-        finally:
-            self.layer_info._end_write()
+        end = fd.tell()
+        fd.seek(start)
+        if header.version == 1:
+            util.write_value(fd, 'I', end - start - 4)
+        else:
+            util.write_value(fd, 'Q', end - start - 8)
+        fd.seek(end)
     write.__doc__ = docs.write
