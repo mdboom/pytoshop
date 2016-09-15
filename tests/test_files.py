@@ -21,7 +21,7 @@ def test_files(filename):
         return
 
     with open(filename, 'rb') as fd:
-        f = psdwriter.PsdFile.read(fd)
+        f = psdwriter.read(fd)
 
         fd2 = io.BytesIO()
         f.write(fd2)
@@ -39,7 +39,7 @@ def test_convert_to_version2(filename):
         return
 
     with open(filename, 'rb') as fd:
-        f = psdwriter.PsdFile.read(fd)
+        f = psdwriter.read(fd)
         f.version = 2
 
         # Disable compression just to make these tests faster
