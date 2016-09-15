@@ -17,12 +17,11 @@ from psdwriter import enums
 
 class TestHeader(object):
     def test_header(self):
-        content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
+        content = b'8BPS\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         h = core.Header.read(fd)
 
-        assert h.signature == b'8BPB'
         assert h.version == 2
         assert h.num_channels == 3
         assert h.height == 15
@@ -35,7 +34,7 @@ class TestHeader(object):
         assert fd.getvalue() == content
 
     def test_header_invalid_version(self):
-        content = b'8BPB\0\x03\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
+        content = b'8BPS\0\x03\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
@@ -49,14 +48,14 @@ class TestHeader(object):
             core.Header.read(fd)
 
     def test_header_invalid_width(self):
-        content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\0\0\0\0\x0F\0\x08\0\1'
+        content = b'8BPS\0\x02\0\0\0\0\0\0\0\x03\0\0\0\0\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(t.TraitError):
             core.Header.read(fd)
 
     def test_header_invalid_depth(self):
-        content = b'8BPB\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x09\0\1'
+        content = b'8BPS\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x09\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(t.TraitError):

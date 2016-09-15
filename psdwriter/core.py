@@ -54,17 +54,6 @@ class Header(t.HasTraits):
         help="Color mode of the file. See `enums.ColorMode`."
     )
 
-    _signatures = {
-        b'8BPS': 1,
-        b'8BPB': 2
-    }
-
-    _inverse_signatures = dict((v, k) for (k, v) in _signatures.items())
-
-    @property
-    def signature(self):
-        return self._inverse_signatures[self.version]
-
     max_size_mapping = {
         1: 30000,
         2: 300000
@@ -87,10 +76,8 @@ class Header(t.HasTraits):
         (signature, version, _reserved, num_channels,
          height, width, depth, color_mode) = struct.unpack('>4sH6sHIIHH', data)
 
-        if signature not in cls._signatures:
+        if signature != b'8BPS':
             raise ValueError("Invalid signature '{}'".format(signature))
-        if cls._signatures[signature] != version:
-            raise ValueError("Signature and version mismatch")
 
         util.log(
             'version: {}, num_channels: {}, '
@@ -118,7 +105,7 @@ class Header(t.HasTraits):
             Must be writable, seekable and open in binary mode.
         """
         data = struct.pack(
-            '>4sH6sHIIHH', self.signature, self.version, b'',
+            '>4sH6sHIIHH', b'8BPS', self.version, b'',
             self.num_channels, self.height, self.width, self.depth,
             self.color_mode)
         fd.write(data)
