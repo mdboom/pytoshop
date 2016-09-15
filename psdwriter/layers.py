@@ -280,6 +280,10 @@ class ChannelImageData(t.HasTraits):
     total_length.__doc__ = docs.total_length
 
     def _get_compressed(self, header, layer_record):
+        # TODO: For multi-GB files, this may be problematic Allow for
+        # caching compressed data to disk in tmp folder and then copy
+        # over on writing to the file...?
+
         if self._compressed is None:
             if self.image is None:
                 image = np.zeros(
@@ -703,28 +707,29 @@ class LayerInfo(t.HasTraits):
     @util.trace_write
     @util.pad_block
     def write(self, fd, header):
+        if header.version == 1:
+            util.write_value(fd, 'I', self.length(header))
+        else:
+            util.write_value(fd, 'Q', self.length(header))
+        layer_count = len(self.layer_records)
+        if layer_count == 0:
+            return
+        if self.use_alpha_channel:
+            layer_count *= -1
+        util.write_value(fd, 'h', layer_count)
+        for layer in self.layer_records:
+            layer.write(fd, header)
+        for layer in self.layer_records:
+            layer.write_channel_data(fd, header)
+    write.__doc__ = docs.write
+
+    def _start_write(self):
         for layer in self.layer_records:
             layer._start_write()
 
-        try:
-            if header.version == 1:
-                util.write_value(fd, 'I', self.length(header))
-            else:
-                util.write_value(fd, 'Q', self.length(header))
-            layer_count = len(self.layer_records)
-            if layer_count == 0:
-                return
-            if self.use_alpha_channel:
-                layer_count *= -1
-            util.write_value(fd, 'h', layer_count)
-            for layer in self.layer_records:
-                layer.write(fd, header)
-            for layer in self.layer_records:
-                layer.write_channel_data(fd, header)
-        finally:
-            for layer in self.layer_records:
-                layer._end_write()
-    write.__doc__ = docs.write
+    def _end_write(self):
+        for layer in self.layer_records:
+            layer._end_write()
 
 
 class GlobalLayerMaskInfo(t.HasTraits):
@@ -877,19 +882,24 @@ class LayerAndMaskInfo(t.HasTraits):
 
     @util.trace_write
     def write(self, fd, header):
-        if header.version == 1:
-            util.write_value(fd, 'I', self.length(header))
-        else:
-            util.write_value(fd, 'Q', self.length(header))
+        self.layer_info._start_write()
 
-        self.layer_info.write(fd, header)
-        if (self.global_layer_mask_info is not None or
-                len(self.additional_layer_info)):
-            if self.global_layer_mask_info is None:
-                global_layer_mask_info = GlobalLayerMaskInfo()
+        try:
+            if header.version == 1:
+                util.write_value(fd, 'I', self.length(header))
             else:
-                global_layer_mask_info = self.global_layer_mask_info
-            global_layer_mask_info.write(fd, header)
-            for layer_info in self.additional_layer_info:
-                layer_info.write(fd, header, 4)
+                util.write_value(fd, 'Q', self.length(header))
+
+            self.layer_info.write(fd, header)
+            if (self.global_layer_mask_info is not None or
+                    len(self.additional_layer_info)):
+                if self.global_layer_mask_info is None:
+                    global_layer_mask_info = GlobalLayerMaskInfo()
+                else:
+                    global_layer_mask_info = self.global_layer_mask_info
+                global_layer_mask_info.write(fd, header)
+                for layer_info in self.additional_layer_info:
+                    layer_info.write(fd, header, 4)
+        finally:
+            self.layer_info._end_write()
     write.__doc__ = docs.write
