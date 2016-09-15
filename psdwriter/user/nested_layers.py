@@ -265,6 +265,11 @@ def _flatten_layers(layers, flat_layers, compression):
             channels = dict(
                 (id, l.ChannelImageData(image=im, compression=compression))
                 for (id, im) in layer.channels.items())
+            if -1 not in channels:
+                im = channels[0].image
+                channels[-1] = l.ChannelImageData(
+                    image=np.zeros(im.shape, im.dtype) - 1,
+                    compression=compression)
             flat_layers.append(
                 l.LayerRecord(
                     top=layer.top,
