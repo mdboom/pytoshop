@@ -837,7 +837,7 @@ class LayerAndMaskInfo(t.HasTraits):
 
         self.layer_info.write(fd, header)
         if (self.global_layer_mask_info is not None or
-            len(self.additional_layer_info)):
+                len(self.additional_layer_info)):
             if self.global_layer_mask_info is None:
                 global_layer_mask_info = GlobalLayerMaskInfo()
             else:

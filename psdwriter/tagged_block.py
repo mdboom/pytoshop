@@ -6,9 +6,6 @@
 """
 
 
-import struct
-
-
 import traitlets as t
 
 
@@ -159,7 +156,6 @@ class UnicodeLayerName(TaggedBlock):
     @util.trace_write
     def write_data(self, fd, header):
         fd.write(util.encode_unicode_string(self.name))
-
 
 
 class LayerId(TaggedBlock):

@@ -282,7 +282,8 @@ def _flatten_layers(layers, flat_layers, compression):
                         tagged_block.LayerId(id=len(flat_layers)),
                         tagged_block.VectorMask(
                             path_resource=path.PathResource.from_rect(
-                                layer.top, layer.left, layer.bottom, layer.right
+                                layer.top, layer.left,
+                                layer.bottom, layer.right
                             ))
                     ]
                 )
