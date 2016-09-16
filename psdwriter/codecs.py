@@ -13,6 +13,7 @@ import numpy as np
 
 
 from . import enums
+from . import packbits
 from . import util
 
 
@@ -175,17 +176,8 @@ def decompress_rle(data, shape, depth, version):
     """
     Decompress run length encoded data.
 
-    Requires the `packbits <https://pypi.python.org/pypi/packbits/>`__
-    library to be installed.
-
 {}
     """
-    try:
-        import packbits
-    except ImportError:  # pragma: no cover
-        raise ImportError(
-            "packbits must be installed to handle RLE compression")
-
     if version == 2:
         size = 4
         dtype = '>u4'
@@ -196,13 +188,18 @@ def decompress_rle(data, shape, depth, version):
     # Read the offset table
     offsets_length = size * shape[0]
     offsets = np.frombuffer(data[:offsets_length], dtype=dtype)
-    data_size = int(np.sum(offsets))
+    stride = color_depth_size_map[depth] * shape[1]
 
     # Unpack the data itself
-    data = packbits.decode(data[offsets_length:offsets_length + data_size])
+    i = offsets_length
+    result = []
+    for offset in offsets:
+        chunk = packbits.decode(data[i:i+offset], stride)
+        result.append(chunk)
+        i += offset
 
     # Now pass along to the raw decoder to get a Numpy array
-    return decompress_raw(data, shape, depth, version)
+    return decompress_raw(b''.join(result), shape, depth, version)
 decompress_rle.__doc__ = decompress_rle.__doc__.format(_decompress_params)
 
 
@@ -290,7 +287,8 @@ def compress_raw(fd, image, depth, version):
 {}
     """
     image = normalize_image(image, depth)
-    fd.write(image)
+    for row in image:
+        fd.write(row)
 compress_raw.__doc__ = compress_raw.__doc__.format(_compress_params)
 
 
@@ -298,22 +296,11 @@ def compress_rle(fd, image, depth, version):
     """
     Write a Numpy array to a run length encoded stream.
 
-    Requires the `packbits <https://pypi.python.org/pypi/packbits/>`__
-    library to be installed.
-
 {}
     """
     if depth == 1:  # pragma: no cover
         raise ValueError(
             "rle compression is not supported for 1-bit images")
-
-    try:
-        import packbits
-    except ImportError:  # pragma: no cover
-        raise ImportError(
-            "packbits must be installed to handle RLE compression")
-
-    image = normalize_image(image, depth)
 
     start = fd.tell()
     if version == 1:
@@ -323,7 +310,7 @@ def compress_rle(fd, image, depth, version):
 
     lengths = []
     for i, row in enumerate(image):
-        packed = packbits.encode(row)
+        packed = packbits.encode(row.tobytes())
         lengths.append(len(packed))
         fd.write(packed)
 
@@ -410,3 +397,61 @@ def compress_image(fd, image, compression, depth, version):
     image = util.ensure_bigendian(image)
 
     return compressors[compression](fd, image, depth, version)
+
+
+def compress_zeros_rle(fd, shape, num_channels, depth, version):
+    """
+    Write a virtual image containing only zeroes to a run length
+    encoded stream.
+    """
+    if depth == 1:  # pragma: no cover
+        raise ValueError(
+            "rle compression is not supported for 1-bit images")
+
+    row = np.array((shape[1],), dtype=color_depth_dtype_map[depth])
+    packed = packbits.encode(row.tobytes())
+
+    rows = shape[0] * num_channels
+
+    if version == 1:
+        for i in range(rows):
+            util.write_value(fd, 'H', len(packed))
+    else:
+        for i in range(rows):
+            util.write_value(fd, 'I', len(packed))
+
+    for i in range(rows):
+        fd.write(packed)
+
+
+def compress_zeros(fd, shape, num_channels, compression, depth, version):
+    """
+    A special case to compress an image of only zeros.
+
+    Parameters
+    ----------
+    fd : file-like object
+        Writable file-like object, open in binary mode.
+
+    shape : 2-tuple of int
+        The shape of the pseudo-image ``(height, width)``.
+
+    num_channels : int
+        The number of color channels in the pseudo image.
+
+    compression : enums.Compression
+        The compression format to use.  See `enums.Compression`.
+
+    depth : enums.ColorDepth
+        The bit depth of the image. See `enums.ColorDepth`.
+
+    version : enums.Version
+        The version of the PSD file. See `enums.Version`.
+    """
+    if compression == enums.Compression.rle:
+        return compress_zeros_rle(fd, shape, num_channels, depth, version)
+    else:
+        image = np.zeros(
+            (num_channels, shape[0], shape[1]),
+            dtype=color_depth_dtype_map[depth])
+        return compress_image(fd, image, compression, depth, version)

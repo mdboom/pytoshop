@@ -82,6 +82,48 @@ class LayerMask(t.HasTraits):
     real_bottom = t.Int()
     real_right = t.Int()
 
+    @property
+    def width(self):
+        """
+        Width of the mask layer.
+        """
+        return self.right - self.left
+
+    @property
+    def height(self):
+        """
+        Height of the mask layer.
+        """
+        return self.bottom - self.top
+
+    @property
+    def shape(self):
+        """
+        Shape of the mask layer ``(height, width)``.
+        """
+        return (self.height, self.width)
+
+    @property
+    def real_width(self):
+        """
+        Real width of the mask layer.
+        """
+        return self.real_right - self.real_left
+
+    @property
+    def real_height(self):
+        """
+        Real height of the mask layer.
+        """
+        return self.real_bottom - self.real_top
+
+    @property
+    def real_shape(self):
+        """
+        Real shape of the mask layer ``(height, width)``.
+        """
+        return (self.real_height, self.real_width)
+
     def length(self, header):
         if util.is_set_to_default(self):
             return 0
@@ -246,7 +288,7 @@ class ChannelImageData(t.HasTraits):
     """
     compression = t.Enum(
         list(enums.Compression),
-        default_value=enums.Compression.zip,
+        default_value=enums.Compression.rle,
         help="Compression method. See `enums.Compression`."
     )
     image = t.TraitType(
@@ -263,23 +305,23 @@ class ChannelImageData(t.HasTraits):
 
     @classmethod
     @util.trace_read
-    def read(cls, fd, header, layer_record, size):
+    def read(cls, fd, header, shape, size):
         compression = util.read_value(fd, 'H')
         util.log("compression: {}", enums.Compression(compression))
         data = fd.read(size)
         image = codecs.decompress_image(
-            data, compression, layer_record.shape, header.depth,
+            data, compression, shape, header.depth,
             header.version)
         return cls(image=image, compression=compression)
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
-    def write(self, fd, header, layer_record):
+    def write(self, fd, header, shape):
         start = fd.tell()
 
         if self.image is None:
             image = np.zeros(
-                layer_record.shape,
+                shape,
                 dtype=codecs.color_depth_dtype_map[header.depth])
         else:
             image = np.asarray(self.image)
@@ -290,11 +332,11 @@ class ChannelImageData(t.HasTraits):
                 raise ValueError("image must be unsigned integers")
 
             if (image is not None and
-                    image.shape != layer_record.shape):
+                    image.shape != shape):
                 raise ValueError(
                     "Image shape does not match layer. "
                     "Expected {}, got {}".format(
-                        layer_record.shape, self.image.shape))
+                        shape, self.image.shape))
 
         util.write_value(fd, 'H', self.compression)
         codecs.compress_image(
@@ -536,8 +578,14 @@ class LayerRecord(t.HasTraits):
         channels = collections.OrderedDict()
         for channel_id, channel_length in zip(
                 self._channel_ids, self._channel_data_lengths):
+            if channel_id == enums.ChannelId.user_layer_mask:
+                shape = self.mask.shape
+            elif channel_id == enums.ChannelId.real_user_layer_mask:
+                shape = self.mask.real_shape
+            else:
+                shape = self.shape
             channels[channel_id] = ChannelImageData.read(
-                fd, header, self, channel_length - 2)
+                fd, header, shape, channel_length - 2)
         self.channels = channels
 
     @util.trace_write
@@ -583,8 +631,14 @@ class LayerRecord(t.HasTraits):
         Write the `ChannelImageData` for this layer.
         """
         lengths = []
-        for data in self.channels.values():
-            lengths.append(data.write(fd, header, self))
+        for channel_id, data in self.channels.items():
+            if channel_id == enums.ChannelId.user_layer_mask:
+                shape = self.mask.shape
+            elif channel_id == enums.ChannelId.real_user_layer_mask:
+                shape = self.mask.real_shape
+            else:
+                shape = self.shape
+            lengths.append(data.write(fd, header, shape))
 
         offset = fd.tell()
         fd.seek(self.channel_lengths_offset)
@@ -634,7 +688,8 @@ class LayerInfo(t.HasTraits):
                      layer_count, use_alpha_channel)
 
             layer_records = [
-                LayerRecord.read(fd, header) for i in range(layer_count)]
+                LayerRecord.read(fd, header) for i in range(layer_count)
+            ]
             for layer in layer_records:
                 layer.read_channel_data(fd, header)
 

@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+
 from setuptools import setup
+from setuptools.extension import Extension
+from Cython.Build import cythonize
+
+import numpy as np
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -15,8 +21,15 @@ requirements = [
 ]
 
 test_requirements = [
-    'pytest',
-    'packbits'
+    'pytest'
+]
+
+
+extensions = [
+    Extension(
+        "psdwriter.packbits",
+        ["psdwriter/packbits.pyx"]
+    )
 ]
 
 setup(
@@ -46,5 +59,6 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
     test_suite='tests',
-    tests_require=test_requirements
+    tests_require=test_requirements,
+    ext_modules=cythonize(extensions)
 )

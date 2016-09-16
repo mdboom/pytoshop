@@ -282,8 +282,8 @@ def _flatten_layers(layers, flat_layers, compression):
                         tagged_block.LayerId(id=len(flat_layers)),
                         tagged_block.VectorMask(
                             path_resource=path.PathResource.from_rect(
-                                layer.top, layer.left,
-                                layer.bottom, layer.right
+                                layer.top + 5, layer.left + 5,
+                                layer.bottom - 5, layer.right - 5
                             ))
                     ]
                 )
@@ -360,7 +360,7 @@ def _update_sizes(layers):
 def nested_layers_to_psd(
         layers,
         version=enums.Version.version_1,
-        compression=enums.Compression.zip,
+        compression=enums.Compression.rle,
         color_mode=enums.ColorMode.rgb,
         depth=None,
         size=None):

@@ -24,7 +24,7 @@ class ImageData(t.HasTraits):
     """
     compression = t.Enum(
         list(enums.Compression),
-        default_value=enums.Compression.raw,
+        default_value=enums.Compression.rle,
         help="Compression method. See `enums.Compression`"
     )
     channels = t.Instance(
@@ -73,9 +73,9 @@ class ImageData(t.HasTraits):
 
         expected_shape = (header.num_channels, header.height, header.width)
         if self.channels is None:
-            image = np.zeros(
-                expected_shape,
-                dtype=codecs.color_depth_dtype_map[header.depth])
+            codecs.compress_zeros(
+                fd, (header.height, header.width), header.num_channels,
+                self.compression, header.depth, header.version)
         else:
             image = self.channels
             if image.shape != expected_shape:
@@ -84,7 +84,7 @@ class ImageData(t.HasTraits):
                     "Got {}, expected {}".format(
                         image.shape, expected_shape))
 
-        image = image.reshape(
-            (header.height * header.num_channels, header.width))
-        codecs.compress_image(
-            fd, image, self.compression, header.depth, header.version)
+            image = image.reshape(
+                (header.height * header.num_channels, header.width))
+            codecs.compress_image(
+                fd, image, self.compression, header.depth, header.version)
