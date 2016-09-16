@@ -249,8 +249,7 @@ class ChannelImageData(t.HasTraits):
         default_value=enums.Compression.zip,
         help="Compression method. See `enums.Compression`."
     )
-    image = t.Instance(
-        np.ndarray, allow_none=True,
+    image = t.TraitType(
         help="2-D Numpy array of a single plane of image data. "
              "Must be of shape ``(height, width)`` corresponding to the size "
              "of the layer.  Must be unsigned int with a bit depth matching "
@@ -260,22 +259,7 @@ class ChannelImageData(t.HasTraits):
     @t.validate('image')
     def _valid_image(self, proposal):
         value = proposal['value']
-        if len(value.shape) != 2:
-            raise ValueError("image must be 2-dimensional array")
-        if value.dtype.kind != 'u':
-            raise ValueError("image must be unsigned integers")
         return value
-
-    def _get_compressed(self, header, layer_record):
-        if self.image is None:
-            image = np.zeros(
-                layer_record.shape,
-                dtype=codecs.color_depth_dtype_map[header.depth])
-        else:
-            image = self.image
-        compressed = codecs.compress_image(
-            image, self.compression, header.depth, header.version)
-        return compressed
 
     @classmethod
     @util.trace_read
@@ -291,17 +275,31 @@ class ChannelImageData(t.HasTraits):
 
     @util.trace_write
     def write(self, fd, header, layer_record):
-        if (self.image is not None and
-                self.image.shape != layer_record.shape):
-            raise ValueError(
-                "Image shape does not match layer. "
-                "Expected {}, got {}".format(
-                    layer_record.shape, self.image.shape))
+        start = fd.tell()
+
+        if self.image is None:
+            image = np.zeros(
+                layer_record.shape,
+                dtype=codecs.color_depth_dtype_map[header.depth])
+        else:
+            image = np.asarray(self.image)
+
+            if len(image.shape) != 2:
+                raise ValueError("image must be 2-dimensional array")
+            if image.dtype.kind != 'u':
+                raise ValueError("image must be unsigned integers")
+
+            if (image is not None and
+                    image.shape != layer_record.shape):
+                raise ValueError(
+                    "Image shape does not match layer. "
+                    "Expected {}, got {}".format(
+                        layer_record.shape, self.image.shape))
 
         util.write_value(fd, 'H', self.compression)
-        compressed = self._get_compressed(header, layer_record)
-        fd.write(compressed)
-        return len(compressed) + 2
+        codecs.compress_image(
+            fd, image, self.compression, header.depth, header.version)
+        return fd.tell() - start
     write.__doc__ = docs.write
 
 

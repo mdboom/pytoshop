@@ -42,6 +42,9 @@ _decompress_params = """
 _compress_params = """
     Parameters
     ----------
+    fd : file-like object
+        Writable file-like object, open in binary mode.
+
     image : 2-D numpy array
         The image to compress.  Must be unsigned integer with 8, 16 or
         32 bits.  If *depth* is 1, the array should have dtype
@@ -52,11 +55,6 @@ _compress_params = """
 
     version : enums.Version
         The version of the PSD file. See `enums.Version`.
-
-    Returns
-    -------
-    data : bytes
-        The raw bytes to write to the file.
 """
 
 
@@ -279,64 +277,84 @@ def decompress_image(data, compression, shape, depth, version):
     return decompressors[compression](data, shape, depth, version)
 
 
-def compress_raw(image, depth, version):
+def normalize_image(image, depth):
+    if depth == 1:
+        image = np.packbits(image.flatten())
+    return image
+
+
+def compress_raw(fd, image, depth, version):
     """
-    Convert a Numpy array to raw bytes to save in the file.
+    Write a Numpy array to raw bytes in a file.
 
 {}
     """
-    if depth == 1:
-        image = np.packbits(image.flatten())
-    return image.tobytes()
+    image = normalize_image(image, depth)
+    fd.write(image)
 compress_raw.__doc__ = compress_raw.__doc__.format(_compress_params)
 
 
-def compress_rle(image, depth, version):
+def compress_rle(fd, image, depth, version):
     """
-    Convert a Numpy array to a run length encoded stream.
+    Write a Numpy array to a run length encoded stream.
 
     Requires the `packbits <https://pypi.python.org/pypi/packbits/>`__
     library to be installed.
 
 {}
     """
+    if depth == 1:  # pragma: no cover
+        raise ValueError(
+            "rle compression is not supported for 1-bit images")
+
     try:
         import packbits
     except ImportError:  # pragma: no cover
         raise ImportError(
             "packbits must be installed to handle RLE compression")
 
-    if version == 2:
-        dtype = '>u4'
+    image = normalize_image(image, depth)
+
+    start = fd.tell()
+    if version == 1:
+        fd.seek(image.shape[0] * 2, 1)
     else:
-        dtype = '>u2'
+        fd.seek(image.shape[0] * 4, 1)
 
-    offsets = np.zeros(image.shape[0], dtype=dtype)
-    packed_rows = []
+    lengths = []
     for i, row in enumerate(image):
-        data = compress_raw(row, depth, version)
-        packed = packbits.encode(data)
-        offsets[i] = len(packed)
-        packed_rows.append(packed)
+        packed = packbits.encode(row)
+        lengths.append(len(packed))
+        fd.write(packed)
 
-    return offsets.tobytes() + b''.join(packed_rows)
+    end = fd.tell()
+    fd.seek(start)
+    for length in lengths:
+        if version == 1:
+            util.write_value(fd, 'H', length)
+        else:
+            util.write_value(fd, 'I', length)
+    fd.seek(end)
 compress_rle.__doc__ = compress_rle.__doc__.format(_compress_params)
 
 
-def compress_zip(image, depth, version):
+def compress_zip(fd, image, depth, version):
     """
-    Compress a Numpy array to a zip (zlib) compressed stream.
+    Write a Numpy array to a zip (zlib) compressed stream.
 
 {}
     """
-    data = compress_raw(image, depth, version)
-    return zlib.compress(data)
+    image = normalize_image(image, depth)
+    compressor = zlib.compressobj()
+    for row in image:
+        fd.write(compressor.compress(row))
+    fd.write(compressor.flush())
 compress_zip.__doc__ = compress_zip.__doc__.format(_compress_params)
 
 
-def compress_zip_prediction(image, depth, version):
+def compress_zip_prediction(fd, image, depth, version):
     """
-    Compress a Numpy array to a zip (zlib) with prediction compressed
+    Write a Numpy array to a zip (zlib) with prediction compressed
     stream.
 
     Not supported for 1- or 32-bit images.
@@ -347,9 +365,8 @@ def compress_zip_prediction(image, depth, version):
         raise ValueError(
             "zip with prediction is not supported for 1-bit images")
 
-    data = compress_raw(image, depth, version)
-    data = encode_prediction(image)
-    return zlib.compress(data)
+    image = encode_prediction(image)
+    return compress_zip(fd, image, depth, version)
 compress_zip_prediction.__doc__ = compress_zip_prediction.__doc__.format(
     _compress_params)
 
@@ -362,12 +379,15 @@ compressors = {
 }
 
 
-def compress_image(image, compression, depth, version):
+def compress_image(fd, image, compression, depth, version):
     """
-    Compress an image with the given compression type.
+    Write an image with the given compression type.
 
     Parameters
     ----------
+    fd : file-like object
+        Writable file-like object, open in binary mode.
+
     image : 2-D numpy array
         The image to compress.  Must be unsigned integer with 8, 16 or
         32 bits.  If *depth* is 1, the array should have dtype
@@ -381,11 +401,6 @@ def compress_image(image, compression, depth, version):
 
     version : enums.Version
         The version of the PSD file. See `enums.Version`.
-
-    Returns
-    -------
-    data : bytes
-        The raw bytes to write to the file.
     """
     dtype = image.dtype
     if dtype.kind != 'u':
@@ -394,4 +409,4 @@ def compress_image(image, compression, depth, version):
         raise ValueError("Image array values of wrong size")
     image = util.ensure_bigendian(image)
 
-    return compressors[compression](image, depth, version)
+    return compressors[compression](fd, image, depth, version)

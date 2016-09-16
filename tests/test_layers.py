@@ -24,11 +24,13 @@ def test_futz_with_channel_image_data():
 
     first_layer = psd.layer_and_mask_info.layer_info.layer_records[0]
 
+    first_layer.channels[0].image = np.empty((256, 256))
     with pytest.raises(ValueError):
-        first_layer.channels[0].image = np.empty((256, 256))
+        psd.write(io.BytesIO())
 
+    first_layer.channels[0].image = np.empty((256,), np.uint8)
     with pytest.raises(ValueError):
-        first_layer.channels[0].image = np.empty((256,), np.uint8)
+        psd.write(io.BytesIO())
 
     first_layer.channels[0].image = np.empty((256, 256), np.uint8)
     with pytest.raises(ValueError):

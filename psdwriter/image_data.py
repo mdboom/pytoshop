@@ -67,7 +67,10 @@ class ImageData(t.HasTraits):
 
         return cls(channels=image, compression=compression)
 
-    def get_compressed(self, header):
+    @util.trace_write
+    def write(self, fd, header):
+        util.write_value(fd, 'H', self.compression)
+
         expected_shape = (header.num_channels, header.height, header.width)
         if self.channels is None:
             image = np.zeros(
@@ -83,12 +86,5 @@ class ImageData(t.HasTraits):
 
         image = image.reshape(
             (header.height * header.num_channels, header.width))
-        data = codecs.compress_image(
-            image, self.compression, header.depth, header.version)
-        return data
-
-    @util.trace_write
-    def write(self, fd, header):
-        util.write_value(fd, 'H', self.compression)
-        data = self.get_compressed(header)
-        fd.write(data)
+        codecs.compress_image(
+            fd, image, self.compression, header.depth, header.version)
