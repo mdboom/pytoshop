@@ -168,3 +168,15 @@ class SectionDividerSetting(enum.IntEnum):
     open = 1
     closed = 2
     bounding = 3
+
+
+class PathRecordType(enum.IntEnum):
+    closed_subpath_length = 0
+    closed_subpath_bezier_knot_linked = 1
+    closed_subpath_bezier_knot_unlinked = 2
+    open_subpath_length = 3
+    open_subpath_bezier_knot_linked = 4
+    open_subpath_bezier_knot_unlinked = 5
+    path_fill_rule_record = 6
+    clipboard_record = 7
+    initial_fill_rule_record = 8

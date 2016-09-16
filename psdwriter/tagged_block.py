@@ -14,12 +14,13 @@ import traitlets as t
 
 from . import docs
 from . import enums
+from . import path
 from . import util
 
 
 class _TaggedBlockMeta(type(t.HasTraits)):
     """
-    A mtaclass that builds a mapping of subclasses.
+    A metaclass that builds a mapping of subclasses.
     """
     mapping = {}
 
@@ -27,6 +28,8 @@ class _TaggedBlockMeta(type(t.HasTraits)):
         new_cls = super().__new__(cls, name, parents, dct)
 
         if 'code' in dct and isinstance(dct['code'], bytes):
+            if dct['code'] in cls.mapping:
+                raise ValueError("Duplicate code '{}'".format(dct['code']))
             cls.mapping[dct['code']] = new_cls
 
         return new_cls
@@ -39,7 +42,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
         b'PxSD'])
 
     def length(self, header):
-        return len(self.data)
+        return self.data_length(header)
     length.__doc__ = docs.length
 
     def total_length(self, header, padding=1):
@@ -73,10 +76,14 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
         )
 
         new_cls = _TaggedBlockMeta.mapping.get(code, GenericTaggedBlock)
-        data = fd.read(length)
+        start = fd.tell()
+        result = new_cls.read_data(fd, code, length, header)
+        end = fd.tell()
+        if end - start != length:
+            raise ValueError("{} read the wrong amount".format(new_cls))
         fd.seek(padded_length - length, 1)
 
-        return new_cls.read(code, data)
+        return result
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
@@ -86,13 +93,20 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
         else:
             fd.write(b'8BIM')
         fd.write(self.code)
-        length = len(self.data)
+
+        length = self.data_length(header)
         padded_length = util.pad(length, padding)
         if header.version == 2 and self.code in self._large_layer_info_codes:
             util.write_value(fd, 'Q', length)
         else:
             util.write_value(fd, 'I', length)
-        fd.write(self.data)
+
+        start = fd.tell()
+        self.write_data(fd, header)
+        end = fd.tell()
+        if end - start != length:
+            raise ValueError(
+                "{} wrote the wrong amount".format(self.__class__))
         fd.write(b'\0' * (padded_length - length))
     write.__doc__ = docs.write
 
@@ -113,9 +127,17 @@ class GenericTaggedBlock(TaggedBlock):
     )
 
     @classmethod
-    def read(cls, code, data):
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        data = fd.read(length)
         return cls(code=code, data=data)
-    read.__func__.__doc__ = docs.read
+
+    def data_length(self, header):
+        return len(self.data)
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        fd.write(self.data)
 
 
 class UnicodeLayerName(TaggedBlock):
@@ -124,16 +146,20 @@ class UnicodeLayerName(TaggedBlock):
         help="The name of the layer."
     )
 
-    @property
-    def data(self):
-        return util.encode_unicode_string(self.name)
-
     @classmethod
-    def read(cls, code, data):
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        data = fd.read(length)
         name = util.decode_unicode_string(data)
-        util.log('name: {}', name)
         return cls(name=name)
-    read.__func__.__doc__ = docs.read
+
+    def data_length(self, header):
+        return len(util.encode_unicode_string(self.name))
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        fd.write(util.encode_unicode_string(self.name))
+
 
 
 class LayerId(TaggedBlock):
@@ -142,16 +168,18 @@ class LayerId(TaggedBlock):
         help="Layer id"
     )
 
-    @property
-    def data(self):
-        return struct.pack('>I', self.id)
-
     @classmethod
-    def read(cls, code, data):
-        id, = struct.unpack('>I', data)
-        util.log('id: {}', id)
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        id = util.read_value(fd, 'I')
         return cls(id=id)
-    read.__func__.__doc__ = docs.read
+
+    def data_length(self, header):
+        return 4
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        util.write_value(fd, 'I', self.id)
 
 
 class LayerNameSource(TaggedBlock):
@@ -160,16 +188,18 @@ class LayerNameSource(TaggedBlock):
         help="The layer id of the source of the name of this layer"
     )
 
-    @property
-    def data(self):
-        return struct.pack('>I', self.id)
-
     @classmethod
-    def read(cls, code, data):
-        id, = struct.unpack('>I', data)
-        util.log('id: {}', id)
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        id = util.read_value(fd, 'I')
         return cls(id=id)
-    read.__func__.__doc__ = docs.read
+
+    def data_length(self, header):
+        return 4
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        util.write_value(fd, 'I', self.id)
 
 
 class _SectionDividerSetting(TaggedBlock):
@@ -188,35 +218,43 @@ class _SectionDividerSetting(TaggedBlock):
         "affects the animation timeline"
     )
 
-    @property
-    def data(self):
-        data = struct.pack('>I', self.type)
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        end = fd.tell() + length
+        type = util.read_value(fd, 'I')
+        key = None
+        subtype = None
+        if fd.tell() < end:
+            sig = fd.read(4)
+            if sig != b'8BIM':
+                raise ValueError("Invalid signature")
+            key = fd.read(4)
+            if fd.tell() < end:
+                subtype = bool(util.read_value(fd, 'I'))
+
+        return cls(type=type, key=key, subtype=subtype)
+
+    def data_length(self, header):
+        length = 4
+        if self.subtype is not None:
+            length += 12
+        elif self.key is not None:
+            length += 8
+        return length
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        util.write_value(fd, 'I', self.type)
         if self.key is not None or self.subtype is not None:
             if self.key is None:
                 key = b'norm'
             else:
                 key = self.key
-            data += b'8BIM' + key
+            fd.write(b'8BIM')
+            fd.write(key)
             if self.subtype is not None:
-                data += struct.pack('>I', self.subtype)
-        return data
-
-    @classmethod
-    def read(cls, code, data):
-        type, = struct.unpack('>I', data[:4])
-
-        key = None
-        subtype = None
-        if len(data) >= 12:
-            key = data[8:12]
-
-            if len(data) >= 16:
-                subtype = bool(struct.unpack('>I', data[12:16])[0])
-
-        util.log('type: {}, key: {}, subtype: {}', type, key, subtype)
-
-        return cls(type=type, key=key, subtype=subtype)
-    read.__func__.__doc__ = docs.read
+                util.write_value(fd, 'I', self.subtype)
 
 
 class SectionDividerSetting(_SectionDividerSetting):
@@ -225,3 +263,65 @@ class SectionDividerSetting(_SectionDividerSetting):
 
 class NestedSectionDividerSetting(_SectionDividerSetting):
     code = b'lsdk'
+
+
+class VectorMask(TaggedBlock):
+    code = b'vmsk'
+    version = t.Int(
+        3,
+        help='Vector mask block version'
+    )
+    invert = t.Bool(
+        help='Invert mask'
+    )
+    not_link = t.Bool(
+        help="Don't link mask"
+    )
+    disable = t.Bool(
+        help="Disable mask"
+    )
+    path_resource = t.Instance(
+        path.PathResource,
+        help="`path.PathResource` instance`"
+    )
+
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        version = util.read_value(fd, 'I')
+        flags = util.read_value(fd, 'I')
+        invert = bool(flags & 1)
+        not_link = bool(flags & 2)
+        disable = bool(flags & 4)
+
+        util.log(
+            "version: {}, invert: {}, not_link: {}, disable: {}",
+            version, invert, not_link, disable)
+
+        path_resource = path.PathResource.read(fd, length - 8, header)
+
+        return cls(
+            version=version,
+            invert=invert,
+            not_link=not_link,
+            disable=disable,
+            path_resource=path_resource)
+
+    def data_length(self, header):
+        return 8 + self.path_resource.length(header)
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        util.write_value(fd, 'I', self.version)
+
+        flags = 0
+        if self.invert:
+            flags |= 1
+        if self.not_link:
+            flags |= 2
+        if self.disable:
+            flags |= 4
+
+        util.write_value(fd, 'I', flags)
+
+        self.path_resource.write(fd, header)

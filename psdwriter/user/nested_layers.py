@@ -16,6 +16,7 @@ import traitlets as t
 from .. import core
 from .. import enums
 from .. import layers as l
+from .. import path
 from .. import tagged_block
 
 
@@ -106,7 +107,7 @@ class Image(Layer):
         if isinstance(value, list):
             return dict((i, plane) for (i, plane) in enumerate(value))
 
-        raise t.TraitError('Invalid channels')
+        return {0: value}
 
 
 def _iterate_all_images(layers):
@@ -265,11 +266,6 @@ def _flatten_layers(layers, flat_layers, compression):
             channels = dict(
                 (id, l.ChannelImageData(image=im, compression=compression))
                 for (id, im) in layer.channels.items())
-            if -1 not in channels:
-                im = channels[0].image
-                channels[-1] = l.ChannelImageData(
-                    image=np.zeros(im.shape, im.dtype) - 1,
-                    compression=compression)
             flat_layers.append(
                 l.LayerRecord(
                     top=layer.top,
@@ -283,7 +279,11 @@ def _flatten_layers(layers, flat_layers, compression):
                     channels=channels,
                     blocks=[
                         tagged_block.UnicodeLayerName(name=layer.name),
-                        tagged_block.LayerId(id=len(flat_layers))
+                        tagged_block.LayerId(id=len(flat_layers)),
+                        tagged_block.VectorMask(
+                            path_resource=path.PathResource.from_rect(
+                                layer.top, layer.left, layer.bottom, layer.right
+                            ))
                     ]
                 )
             )
