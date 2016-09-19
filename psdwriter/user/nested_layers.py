@@ -284,7 +284,8 @@ def _flatten_layers(layers, flat_layers, compression):
                             path_resource=path.PathResource.from_rect(
                                 layer.top + 5, layer.left + 5,
                                 layer.bottom - 5, layer.right - 5
-                            ))
+                            )
+                        )
                     ]
                 )
             )
