@@ -12,7 +12,7 @@ import struct
 import sys
 
 
-DEBUG = True
+DEBUG = False
 
 
 def read_value(fd, fmt, endian='>'):

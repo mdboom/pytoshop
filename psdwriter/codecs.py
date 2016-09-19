@@ -83,70 +83,6 @@ _compress_constant_params = """
 """
 
 
-def decode_prediction(image):
-    """
-    Decode predictive coding in the image.
-
-    Parameters
-    ----------
-    image : 2-D numpy array
-        Must be unsigned 8- or 16-bit integer.
-
-    Returns
-    -------
-    decoded : 2-D numpy array
-        A copy of the array with the predictive coding decoded.
-    """
-    itemsize = image.dtype.itemsize
-
-    if itemsize in (1, 2):
-        image = image.copy()
-        for x in range(image.shape[1] - 1):
-            image[:, x+1] += image[:, x]
-        return image
-
-    elif itemsize == 4:  # pragma: no cover
-        # TODO
-        raise ValueError(
-            "zip with prediction for 32-bit images is not yet supported")
-
-    else:  # pragma: no cover
-        raise ValueError(
-            "Invalid itemsize {}".format(itemsize))
-
-
-def encode_prediction(image):
-    """
-    Encode predictive coding in the image.
-
-    Parameters
-    ----------
-    image : 2-D numpy array
-        Must be unsigned 8- or 16-bit integer.
-
-    Returns
-    -------
-    encoded : 2-D numpy array
-        A copy of the array with the predictive coding.
-    """
-    itemsize = image.dtype.itemsize
-
-    if itemsize in (1, 2):
-        image = image.copy()
-        for x in range(image.shape[1] - 1, 0, -1):
-            image[:, x] -= image[:, x-1]
-        return image
-
-    elif itemsize == 4:  # pragma: no cover
-        # TODO
-        raise ValueError(
-            "zip with prediction for 32-bit images is not yet supported")
-
-    else:  # pragma: no cover
-        raise ValueError(
-            "Invalid itemsize {}".format(itemsize))
-
-
 color_depth_dtype_map = {
     1: 'u1',
     8: 'u1',
@@ -242,10 +178,19 @@ def decompress_zip_prediction(data, shape, depth, version):
     if depth == 1:  # pragma: no cover
         raise ValueError(
             "zip with prediction is not supported for 1-bit images")
+    elif depth == 32:
+        raise ValueError(
+            "zip with prediction is not implemented for 32-bit images")
+    elif depth == 8:
+        decoder = packbits.decode_prediction_8bit
+    else:
+        decoder = packbits.decode_prediction_16bit
 
     data = zlib.decompress(data)
     image = decompress_raw(data, shape, depth, version)
-    return decode_prediction(image)
+    for i in range(len(image)):
+        decoder(image[i].flatten())
+    return image
 decompress_zip_prediction.__doc__ = decompress_zip_prediction.__doc__.format(
     _decompress_params)
 
@@ -322,22 +267,19 @@ def compress_rle(fd, image, depth, version):
     start = fd.tell()
     if version == 1:
         fd.seek(image.shape[0] * 2, 1)
+        lengths = np.empty((len(image),), dtype='>u2')
     else:
         fd.seek(image.shape[0] * 4, 1)
+        lengths = np.empty((len(image),), dtype='>u4')
 
-    lengths = []
     for i, row in enumerate(image):
         packed = packbits.encode(row.tobytes())
-        lengths.append(len(packed))
+        lengths[i] = len(packed)
         fd.write(packed)
 
     end = fd.tell()
     fd.seek(start)
-    for length in lengths:
-        if version == 1:
-            util.write_value(fd, 'H', length)
-        else:
-            util.write_value(fd, 'I', length)
+    fd.write(lengths.tobytes())
     fd.seek(end)
 compress_rle.__doc__ = compress_rle.__doc__.format(_compress_params)
 
@@ -368,9 +310,20 @@ def compress_zip_prediction(fd, image, depth, version):
     if depth == 1:  # pragma: no cover
         raise ValueError(
             "zip with prediction is not supported for 1-bit images")
+    elif depth == 32:  # pragma: no cover
+        raise ValueError(
+            "zip with prediction is not implemented for 32-bit images")
+    elif depth == 8:
+        encoder = packbits.encode_prediction_8bit
+    elif depth == 16:
+        encoder = packbits.encode_prediction_16bit
 
-    image = encode_prediction(image)
-    return compress_zip(fd, image, depth, version)
+    compressor = zlib.compressobj()
+    for row in image:
+        row = util.ensure_bigendian(row.copy())
+        encoder(row.flatten())
+        fd.write(compressor.compress(row))
+    fd.write(compressor.flush())
 compress_zip_prediction.__doc__ = compress_zip_prediction.__doc__.format(
     _compress_params)
 
@@ -543,10 +496,17 @@ def compress_constant_zip_prediction(
     if depth == 1:  # pragma: no cover
         raise ValueError(
             "zip with prediction is not supported for 1-bit images")
+    elif depth == 32:  # pragma: no cover
+        raise ValueError(
+            "zip with prediction is not implemented for 32-bit images")
+    elif depth == 8:
+        encoder = packbits.encode_prediction_8bit
+    elif depth == 16:
+        encoder = packbits.encode_prediction_16bit
 
     row = _make_constant_row(value, width, depth)
     row = row.reshape((1, width))
-    row = encode_prediction(row)
+    encoder(row.flatten())
     row = row.tobytes()
     compressor = zlib.compressobj()
     for i in range(rows):

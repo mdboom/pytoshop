@@ -1,4 +1,41 @@
 cimport cpython
+cimport numpy as np
+
+
+def decode_prediction_8bit(np.ndarray data):
+    cdef unsigned char *input = <unsigned char *>data.data
+    cdef Py_ssize_t input_size = data.shape[0]
+    cdef int i
+
+    for i in range(input_size - 1):
+        input[i+1] += input[i]
+
+
+def decode_prediction_16bit(np.ndarray data):
+    cdef unsigned short *input = <unsigned short *>data.data
+    cdef Py_ssize_t input_size = data.shape[0]
+    cdef int i
+
+    for i in range(input_size - 1):
+        input[i+1] += input[i]
+
+
+def encode_prediction_8bit(np.ndarray data):
+    cdef unsigned char *input = <unsigned char *>data.data
+    cdef Py_ssize_t input_size = data.shape[0]
+    cdef int i
+
+    for i in range(input_size - 1, 0, -1):
+        input[i] -= input[i-1]
+
+
+def encode_prediction_16bit(np.ndarray data):
+    cdef unsigned short *input = <unsigned short *>data.data
+    cdef Py_ssize_t input_size = data.shape[0]
+    cdef int i
+
+    for i in range(input_size - 1, 0, -1):
+        input[i] -= input[i-1]
 
 
 def decode(data, size_t width):

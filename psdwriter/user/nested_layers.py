@@ -267,7 +267,8 @@ def _flatten_layers(layers, flat_layers, compression, vector_mask):
         elif isinstance(layer, Image):
             channels = dict(
                 (id, l.ChannelImageData(image=im, compression=compression))
-                for (id, im) in layer.channels.items())
+                for (id, im) in layer.channels.items()
+            )
 
             blocks = [
                 tagged_block.UnicodeLayerName(name=layer.name),
@@ -286,7 +287,8 @@ def _flatten_layers(layers, flat_layers, compression, vector_mask):
             else:
                 if enums.ChannelId.transparency not in channels:
                     channels[enums.ChannelId.transparency] = \
-                        l.ChannelImageData(image=-1)
+                        l.ChannelImageData(
+                            image=-1, compression=compression)
 
             flat_layers.append(
                 l.LayerRecord(
