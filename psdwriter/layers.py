@@ -318,29 +318,10 @@ class ChannelImageData(t.HasTraits):
     @util.trace_write
     def write(self, fd, header, shape):
         start = fd.tell()
-
-        if self.image is None:
-            image = np.zeros(
-                shape,
-                dtype=codecs.color_depth_dtype_map[header.depth])
-        else:
-            image = np.asarray(self.image)
-
-            if len(image.shape) != 2:
-                raise ValueError("image must be 2-dimensional array")
-            if image.dtype.kind != 'u':
-                raise ValueError("image must be unsigned integers")
-
-            if (image is not None and
-                    image.shape != shape):
-                raise ValueError(
-                    "Image shape does not match layer. "
-                    "Expected {}, got {}".format(
-                        shape, self.image.shape))
-
         util.write_value(fd, 'H', self.compression)
         codecs.compress_image(
-            fd, image, self.compression, header.depth, header.version)
+            fd, self.image, self.compression, shape, 1,
+            header.depth, header.version)
         return fd.tell() - start
     write.__doc__ = docs.write
 

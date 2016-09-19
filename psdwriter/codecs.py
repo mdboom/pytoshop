@@ -59,6 +59,30 @@ _compress_params = """
 """
 
 
+_compress_constant_params = """
+    Parameters
+    ----------
+    fd : file-like object
+        Writable file-like object, open in binary mode.
+
+    value : int
+        The constant value in the generated virtual image.
+
+    width : int
+        The width of the image, in pixels.
+
+    rows : int
+        The number of rows in the image, in pixels.  This is
+        ``height * num_channels``.
+
+    depth : enums.ColorDepth
+        The bit depth of the image. See `enums.ColorDepth`.
+
+    version : enums.Version
+        The version of the PSD file. See `enums.Version`.
+"""
+
+
 def decode_prediction(image):
     """
     Decode predictive coding in the image.
@@ -366,7 +390,7 @@ compressors = {
 }
 
 
-def compress_image(fd, image, compression, depth, version):
+def compress_image(fd, image, compression, shape, num_channels, depth, version):
     """
     Write an image with the given compression type.
 
@@ -375,43 +399,111 @@ def compress_image(fd, image, compression, depth, version):
     fd : file-like object
         Writable file-like object, open in binary mode.
 
-    image : 2-D numpy array
+    image : 2-D numpy array or scalar
         The image to compress.  Must be unsigned integer with 8, 16 or
         32 bits.  If *depth* is 1, the array should have dtype
-        ``uint8`` with a byte per pixel.
+        ``uint8`` with a byte per pixel.  If a scalar, a "virtual"
+        image will be used as if the image contained only that
+        constant value.
 
     compression : enums.Compression
         The compression format to use.  See `enums.Compression`.
 
+    shape : 2-tuple of int
+        The shape of the image ``(height, width)``.  If *image* is an
+        array, the *shape* is used to confirm it has the correct
+        shape.  If *image* is a constant, *shape* is used to generate
+        the virtual constant image.
+
+    num_channels : int
+        The number of color channels in the image.  If *image* is an
+        array, the *num_channels* is used to confirm it has the
+        correct number of channels.  If *image* is a constant,
+        *num_channels* is used to generate the virtual constant image.
+
     depth : enums.ColorDepth
-        The bit depth of the image. See `enums.ColorDepth`.
+        The bit depth of the image. See `enums.ColorDepth`.  If
+        *image* is an array, the *depth* is used to confirm it has the
+        correct number of channels.  If *image* is a constant, *depth*
+        is used to generate the virtual constant image.
 
     version : enums.Version
         The version of the PSD file. See `enums.Version`.
     """
+    if isinstance(image, int):
+        image = np.dtype(color_depth_dtype_map[depth]).type(image)
+
     dtype = image.dtype
     if dtype.kind != 'u':
         raise ValueError("Image array dtype must be unsigned int")
     if dtype.itemsize != color_depth_size_map[depth]:
         raise ValueError("Image array values of wrong size")
-    image = util.ensure_bigendian(image)
 
-    return compressors[compression](fd, image, depth, version)
+    if np.isscalar(image):
+        width = shape[1]
+        rows = shape[0] * num_channels
+        return constant_compressors[compression](
+            fd, image, width, rows, depth, version)
+    else:
+        acceptable_shapes = [
+            (num_channels, shape[0], shape[1]),
+            (num_channels * shape[0], shape[1])
+        ]
+
+        if image.shape not in acceptable_shapes:
+            raise ValueError("Image is the wrong shape")
+
+        image = np.asarray(image)
+        image = util.ensure_bigendian(image)
+        image = image.reshape((shape[0] * num_channels, shape[1]))
+        return compressors[compression](fd, image, depth, version)
 
 
-def compress_zeros_rle(fd, shape, num_channels, depth, version):
+def _make_onebit_constant(value, width, rows):
+    if value:
+        value == 255
+    else:
+        value = 0
+    return np.ones((width, rows), np.uint8) * value
+
+
+def _make_constant_row(value, width, depth):
+    return util.ensure_bigendian(
+        np.ones((width,), dtype=color_depth_dtype_map[depth]) * value)
+
+
+def compress_constant_raw(fd, value, width, rows, depth, version):
     """
-    Write a virtual image containing only zeroes to a run length
-    encoded stream.
+    Write a virtual image containing a constant to a raw
+    stream.
+
+{}
+    """
+    if depth == 1:
+        image = _make_onebit_constant(value, width, rows)
+        compress_raw(fd, image, depth, version)
+    else:
+        row = _make_constant_row(value, width, depth)
+        row = row.tobytes()
+        for i in range(rows):
+            fd.write(row)
+compress_constant_raw.__doc__ = compress_constant_raw.__doc__.format(
+    _compress_constant_params)
+
+
+def compress_constant_rle(fd, value, width, rows, depth, version):
+    """
+    Write a virtual image containing a constant to a runlength-encoded
+    stream.
+
+{}
     """
     if depth == 1:  # pragma: no cover
         raise ValueError(
             "rle compression is not supported for 1-bit images")
 
-    row = np.array((shape[1],), dtype=color_depth_dtype_map[depth])
+    row = _make_constant_row(value, width, depth)
     packed = packbits.encode(row.tobytes())
-
-    rows = shape[0] * num_channels
 
     if version == 1:
         for i in range(rows):
@@ -422,36 +514,59 @@ def compress_zeros_rle(fd, shape, num_channels, depth, version):
 
     for i in range(rows):
         fd.write(packed)
+compress_constant_rle.__doc__ = compress_constant_rle.__doc__.format(
+    _compress_constant_params)
 
 
-def compress_zeros(fd, shape, num_channels, compression, depth, version):
+def compress_constant_zip(fd, value, width, rows, depth, version):
     """
-    A special case to compress an image of only zeros.
+    Write a virtual image containing a constant to a zip compressed
+    stream.
 
-    Parameters
-    ----------
-    fd : file-like object
-        Writable file-like object, open in binary mode.
-
-    shape : 2-tuple of int
-        The shape of the pseudo-image ``(height, width)``.
-
-    num_channels : int
-        The number of color channels in the pseudo image.
-
-    compression : enums.Compression
-        The compression format to use.  See `enums.Compression`.
-
-    depth : enums.ColorDepth
-        The bit depth of the image. See `enums.ColorDepth`.
-
-    version : enums.Version
-        The version of the PSD file. See `enums.Version`.
+{}
     """
-    if compression == enums.Compression.rle:
-        return compress_zeros_rle(fd, shape, num_channels, depth, version)
+    if depth == 1:
+        image = _make_onebit_constant(value, width, rows)
+        compress_zip(fd, image, depth, version)
     else:
-        image = np.zeros(
-            (num_channels, shape[0], shape[1]),
-            dtype=color_depth_dtype_map[depth])
-        return compress_image(fd, image, compression, depth, version)
+        row = _make_constant_row(value, width, depth)
+        row = row.tobytes()
+        compressor = zlib.compressobj()
+        for i in range(rows):
+            fd.write(compressor.compress(row))
+        fd.write(compressor.flush())
+compress_constant_zip.__doc__ = compress_constant_zip.__doc__.format(
+    _compress_constant_params)
+
+
+def compress_constant_zip_prediction(
+        fd, value, width, rows, depth, version):
+    """
+    Write a virtual image containing a constant to a zip with
+    prediction compressed stream.
+
+{}
+    """
+    if depth == 1:  # pragma: no cover
+        raise ValueError(
+            "zip with prediction is not supported for 1-bit images")
+
+    row = _make_constant_row(value, width, depth)
+    row = row.reshape((1, width))
+    row = encode_prediction(row)
+    row = row.tobytes()
+    compressor = zlib.compressobj()
+    for i in range(rows):
+        fd.write(compressor.compress(row))
+    fd.write(compressor.flush())
+compress_constant_zip_prediction.__doc__ = \
+    compress_constant_zip_prediction.__doc__.format(
+        _compress_constant_params)
+
+
+constant_compressors = {
+    enums.Compression.raw: compress_constant_raw,
+    enums.Compression.rle: compress_constant_rle,
+    enums.Compression.zip: compress_constant_zip,
+    enums.Compression.zip_prediction: compress_constant_zip_prediction
+}

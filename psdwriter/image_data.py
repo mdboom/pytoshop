@@ -69,22 +69,12 @@ class ImageData(t.HasTraits):
 
     @util.trace_write
     def write(self, fd, header):
-        util.write_value(fd, 'H', self.compression)
-
-        expected_shape = (header.num_channels, header.height, header.width)
         if self.channels is None:
-            codecs.compress_zeros(
-                fd, (header.height, header.width), header.num_channels,
-                self.compression, header.depth, header.version)
+            channels = 0
         else:
-            image = self.channels
-            if image.shape != expected_shape:
-                raise ValueError(
-                    "Image data size does not match file size. "
-                    "Got {}, expected {}".format(
-                        image.shape, expected_shape))
+            channels = self.channels
 
-            image = image.reshape(
-                (header.height * header.num_channels, header.width))
-            codecs.compress_image(
-                fd, image, self.compression, header.depth, header.version)
+        util.write_value(fd, 'H', self.compression)
+        codecs.compress_image(
+            fd, channels, self.compression, header.shape,
+            header.num_channels, header.depth, header.version)

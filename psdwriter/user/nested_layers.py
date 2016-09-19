@@ -96,6 +96,8 @@ class Image(Layer):
     def _validate_channels(self, proposal):
         value = proposal['value']
         if isinstance(value, dict):
+            for key in value.keys():
+                enums.ChannelId(key)
             return value
 
         if isinstance(value, np.ndarray):
@@ -229,7 +231,7 @@ def psd_to_nested_layers(psdfile):
     return root.layers
 
 
-def _flatten_layers(layers, flat_layers, compression):
+def _flatten_layers(layers, flat_layers, compression, vector_mask):
     for layer in layers:
         if isinstance(layer, Group):
             if layer.closed:
@@ -250,7 +252,7 @@ def _flatten_layers(layers, flat_layers, compression):
                 )
             )
 
-            _flatten_layers(layer.layers, flat_layers, compression)
+            _flatten_layers(layer.layers, flat_layers, compression, vector_mask)
 
             flat_layers.append(
                 l.LayerRecord(
@@ -266,6 +268,26 @@ def _flatten_layers(layers, flat_layers, compression):
             channels = dict(
                 (id, l.ChannelImageData(image=im, compression=compression))
                 for (id, im) in layer.channels.items())
+
+            blocks = [
+                tagged_block.UnicodeLayerName(name=layer.name),
+                tagged_block.LayerId(id=len(flat_layers))
+            ]
+
+            if vector_mask:
+                blocks.append(
+                    tagged_block.VectorMask(
+                        path_resource=path.PathResource.from_rect(
+                            layer.top + 5, layer.left + 5,
+                            layer.bottom - 5, layer.right - 5
+                        )
+                    )
+                )
+            else:
+                if enums.ChannelId.transparency not in channels:
+                    channels[enums.ChannelId.transparency] = \
+                        l.ChannelImageData(image=-1)
+
             flat_layers.append(
                 l.LayerRecord(
                     top=layer.top,
@@ -277,16 +299,7 @@ def _flatten_layers(layers, flat_layers, compression):
                     opacity=layer.opacity,
                     visible=layer.visible,
                     channels=channels,
-                    blocks=[
-                        tagged_block.UnicodeLayerName(name=layer.name),
-                        tagged_block.LayerId(id=len(flat_layers)),
-                        tagged_block.VectorMask(
-                            path_resource=path.PathResource.from_rect(
-                                layer.top + 5, layer.left + 5,
-                                layer.bottom - 5, layer.right - 5
-                            )
-                        )
-                    ]
+                    blocks=blocks
                 )
             )
 
@@ -364,7 +377,8 @@ def nested_layers_to_psd(
         compression=enums.Compression.rle,
         color_mode=enums.ColorMode.rgb,
         depth=None,
-        size=None):
+        size=None,
+        vector_mask=False):
     """
     Convert a hierarchy of nested `Layer` instances to a `PsdFile`.
 
@@ -395,6 +409,12 @@ def nested_layers_to_psd(
         include all passed in layers, and the layers themselves will
         be adjusted so that none fall outside of the image.
 
+    vector_mask : bool, optional
+        When `True`, the mask for the layer will be a vector
+        rectangle.  This results in much smaller file sizes, but is
+        not quite as accurately rendered by Photoshop.  When `False`,
+        a raster mask is used.
+
     Returns
     -------
     psdfile : PsdFile
@@ -414,7 +434,7 @@ def nested_layers_to_psd(
     else:
         width, height = size
 
-    flat_layers = _flatten_layers(layers, [], compression)[::-1]
+    flat_layers = _flatten_layers(layers, [], compression, vector_mask)[::-1]
 
     f = core.PsdFile(
         version=version,

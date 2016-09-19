@@ -68,6 +68,10 @@ class Header(t.HasTraits):
                     self.version,
                     self.max_size_mapping[self.version]))
 
+    @property
+    def shape(self):
+        return (self.height, self.width)
+
     @classmethod
     @util.trace_read
     def header_read(cls, fd):

@@ -36,7 +36,7 @@ def test_futz_with_channel_image_data():
     with pytest.raises(ValueError):
         psd.write(io.BytesIO())
 
-    first_layer.channels[0].image = None
+    first_layer.channels[0].image = 0
     psd.write(io.BytesIO())
 
     first_layer.channels[0].image = np.empty((200, 100), np.uint8)

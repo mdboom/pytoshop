@@ -51,25 +51,39 @@ def test_errors():
         nested_layers.psd_to_nested_layers(None)
 
 
-def test_from_scratch():
+@pytest.mark.parametrize("vector_mask", (True, False))
+def test_from_scratch(vector_mask):
     from psdwriter.user.nested_layers import Group, Image
 
-    img1 = np.empty((100, 100), dtype=np.uint8)
-    img2 = np.empty((100, 100), dtype=np.uint8)
-    img3 = np.empty((100, 100), dtype=np.uint8)
+    img1 = np.empty((100, 80), dtype=np.uint8)
+    img2 = np.empty((100, 80), dtype=np.uint8)
+    img3 = np.empty((100, 80), dtype=np.uint8)
+    img4 = np.empty((2, 100, 80), dtype=np.uint8)
 
     layers = [
         Group(
             layers=[
                 Image(channels={0: img1},
-                      top=0, left=0, bottom=100, right=100),
-                Image(channels={0: img2},
-                      top=15, left=15)
+                      top=0, left=0, bottom=100, right=80),
+                Image(channels=img2,
+                      top=15, left=15),
+                Image(channels=img4,
+                      top=42, left=43),
+                Image(channels=[img1, img1],
+                      top=-5, left=49)
             ]),
         Image(channels={0: img3})
     ]
 
     psd = nested_layers.nested_layers_to_psd(
-        layers, color_mode=enums.ColorMode.grayscale)
+        layers, color_mode=enums.ColorMode.grayscale,
+        vector_mask=vector_mask)
 
-    psd.write(io.BytesIO())
+    buff = io.BytesIO()
+    psd.write(buff)
+
+    buff.seek(0)
+
+    psdwriter.read(buff)
+
+
