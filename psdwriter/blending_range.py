@@ -27,14 +27,6 @@ class BlendingRange(t.HasTraits):
     white0 = t.Int(min=0, max=255)
     white1 = t.Int(min=0, max=255)
 
-    def length(self, header):
-        return 4
-    length.__doc__ = docs.length
-
-    def total_length(self, header):
-        return self.length(header)
-    total_length.__doc__ = docs.total_length
-
     @classmethod
     @util.trace_read
     def read(cls, fd, header):

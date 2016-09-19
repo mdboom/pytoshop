@@ -27,6 +27,7 @@ Objects
    image_data
    image_resources
    layers
+   path
    tagged_block
 
 Enums
@@ -44,6 +45,7 @@ Codecs
    :toctree: _generated
 
    codecs
+   packbits
 
 Utilities
 ---------

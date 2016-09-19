@@ -448,28 +448,6 @@ class LayerRecord(t.HasTraits):
         """
         return dict((x.code, x) for x in self.blocks)
 
-    def length(self, header):
-        length = 16 + 2
-        if header.version == 1:
-            length += len(self.channels) * 6
-        else:
-            length += len(self.channels) * 10
-        length += 4 + 4 + 1 + 1 + 1 + 1 + 4
-        if self.mask is not None:
-            length += self.mask.total_length(header)
-        if self.blending_ranges is not None:
-            length += self.blending_ranges.total_length(header)
-        if self.name is not None:
-            length += util.pascal_string_length(self.name, 4)
-        for block in self.blocks:
-            length += block.total_length(header)
-        return length
-    length.__doc__ = docs.length
-
-    def total_length(self, header):
-        return self.length(header)
-    total_length.__doc__ = docs.total_length
-
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
@@ -730,17 +708,6 @@ class GlobalLayerMaskInfo(t.HasTraits):
         help="Layer mask kind. See `enums.LayerMaskKind`"
     )
 
-    def length(self, header):
-        if util.is_set_to_default(self):
-            return 0
-        else:
-            return 16
-    length.__doc__ = docs.length
-
-    def total_length(self, header):
-        return 4 + self.length(header)
-    total_length.__doc__ = docs.total_length
-
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
@@ -800,29 +767,6 @@ class LayerAndMaskInfo(t.HasTraits):
     @t.default('layer_info')
     def _default_layer_info(self):
         return LayerInfo()
-
-    def length(self, header):
-        # Length doesn't include layer info, since that's calculated
-        # during write.
-        length = 0
-        if (self.global_layer_mask_info is not None or
-                len(self.additional_layer_info)):
-            if self.global_layer_mask_info is None:
-                global_layer_mask_info = GlobalLayerMaskInfo()
-            else:
-                global_layer_mask_info = self.global_layer_mask_info
-            length += global_layer_mask_info.total_length(header)
-            length += sum(
-                x.total_length(header, 4) for x in self.additional_layer_info)
-        return length
-    length.__doc__ = docs.length
-
-    def total_length(self, header):
-        if header.version == 1:
-            return 4 + self.length(header)
-        else:
-            return 8 + self.length(header)
-    total_length.__doc__ = docs.total_length
 
     @property
     def additional_layer_info_map(self):

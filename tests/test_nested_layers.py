@@ -87,3 +87,71 @@ def test_from_scratch(vector_mask):
     psdwriter.read(buff)
 
 
+def test_mixed_depth():
+    from psdwriter.user.nested_layers import Group, Image
+
+    img1 = np.empty((100, 80), dtype=np.uint8)
+    img2 = np.empty((100, 80), dtype=np.uint16)
+
+    layers = [
+        Group(
+            layers=[
+                Image(channels={0: img1},
+                      top=0, left=0, bottom=100, right=80),
+                Image(channels=img2,
+                      top=15, left=15),
+            ])
+    ]
+
+    with pytest.raises(ValueError):
+        nested_layers.nested_layers_to_psd(
+            layers, color_mode=enums.ColorMode.grayscale)
+
+
+def test_mismatched_height():
+    from psdwriter.user.nested_layers import Group, Image
+
+    img1 = np.empty((100, 80), dtype=np.uint8)
+
+    layers = [
+        Group(
+            layers=[
+                Image(channels={0: img1},
+                      top=0, left=0, bottom=101, right=80),
+            ])
+    ]
+
+    with pytest.raises(ValueError):
+        nested_layers.nested_layers_to_psd(
+            layers, color_mode=enums.ColorMode.grayscale)
+
+
+def test_mismatched_width():
+    from psdwriter.user.nested_layers import Group, Image
+
+    img1 = np.empty((100, 80), dtype=np.uint8)
+
+    layers = [
+        Group(
+            layers=[
+                Image(channels={0: img1},
+                      top=0, left=0, bottom=100, right=81),
+            ])
+    ]
+
+    with pytest.raises(ValueError):
+        nested_layers.nested_layers_to_psd(
+            layers, color_mode=enums.ColorMode.grayscale)
+
+
+def test_no_images():
+    from psdwriter.user.nested_layers import Group
+
+    layers = [
+        Group(
+            layers=[]
+            )
+        ]
+
+    with pytest.raises(ValueError):
+        nested_layers.nested_layers_to_psd(layers)

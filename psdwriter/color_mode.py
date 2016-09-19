@@ -40,10 +40,6 @@ class ColorModeData(t.HasTraits):
         return len(self.data)
     length.__doc__ = docs.length
 
-    def total_length(self, header):
-        return 4 + self.length(header)
-    length.__doc__ = docs.total_length
-
     @classmethod
     @util.trace_read
     def read(cls, fd, header):

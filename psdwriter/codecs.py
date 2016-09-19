@@ -105,12 +105,12 @@ def decode_prediction(image):
             image[:, x+1] += image[:, x]
         return image
 
-    elif itemsize == 4:
+    elif itemsize == 4:  # pragma: no cover
         # TODO
         raise ValueError(
             "zip with prediction for 32-bit images is not yet supported")
 
-    else:
+    else:  # pragma: no cover
         raise ValueError(
             "Invalid itemsize {}".format(itemsize))
 
@@ -137,12 +137,12 @@ def encode_prediction(image):
             image[:, x] -= image[:, x-1]
         return image
 
-    elif itemsize == 4:
+    elif itemsize == 4:  # pragma: no cover
         # TODO
         raise ValueError(
             "zip with prediction for 32-bit images is not yet supported")
 
-    else:
+    else:  # pragma: no cover
         raise ValueError(
             "Invalid itemsize {}".format(itemsize))
 
@@ -182,13 +182,6 @@ def decompress_raw(data, shape, depth, version):
     if depth == 1:
         # Unpack 1-bit image data
         arr = np.unpackbits(arr)
-
-    # Resize the array in case the data is too short or too long
-    size = shape[0] * shape[1]
-    if size < arr.shape[0]:
-        arr = arr[:size]
-    elif size > arr.shape[0]:
-        arr = np.resize(arr, (size,))
 
     # Make 2-dimensional
     image = arr.reshape(shape)

@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
 
+"""
+Handle Bézier paths.
+"""
+
+
 import struct
 
 
@@ -41,9 +46,6 @@ class PathRecord(t.HasTraits, metaclass=_PathRecordMeta):
     def length(self, header):
         return 26
 
-    def total_length(self, header):
-        return self.length(header)
-
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
@@ -65,7 +67,7 @@ class PathFillRuleRecord(PathRecord):
     @util.trace_read
     def read_data(cls, fd, header):
         padding = fd.read(24)
-        if padding != b'\0' * 24:
+        if padding != b'\0' * 24:  # pragma: no cover
             raise ValueError(
                 "Invalid padding in path fill rule record")
         return cls()
@@ -85,7 +87,7 @@ class InitialFillRuleRecord(PathRecord):
     def read_data(cls, fd, header):
         all_pixels = bool(util.read_value(fd, 'H'))
         padding = fd.read(22)
-        if padding != b'\0' * 22:
+        if padding != b'\0' * 22:  # pragma: no cover
             raise ValueError(
                 "Invalid padding in initial fill rule record")
 
@@ -270,10 +272,6 @@ class PathResource(t.HasTraits):
     def length(self, header):
         return sum(x.length(header) for x in self.path_records)
     length.__doc__ = docs.length
-
-    def total_length(self, header):
-        return self.length(header)
-    total_length.__doc__ = docs.total_length
 
     @classmethod
     @util.trace_read

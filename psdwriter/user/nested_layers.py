@@ -363,12 +363,18 @@ def _update_sizes(layers):
         if image.bottom is None:
             image.bottom = image.top + height
         elif image.bottom - image.top != height:
-            raise ValueError("Channel does not match layer size")
+            raise ValueError(
+                "Channel height does not match layer size. "
+                "Got {}, expected {}".format(
+                    image.bottom - image.top, height))
 
         if image.right is None:
             image.right = image.left + width
         elif image.right - image.left != width:
-            raise ValueError("Channel does not match layer size")
+            raise ValueError(
+                "Channel height does not match layer size. "
+                "Got {}, expected {}".format(
+                    image.right - image.left, width))
 
 
 def nested_layers_to_psd(
