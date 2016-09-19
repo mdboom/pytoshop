@@ -3,7 +3,7 @@ cimport cpython
 
 def decode(data, size_t width):
     """
-    Decodes a PackBit encoded data.
+    Decodes PackBit encoded data.
     """
     cdef int input_pos, output_pos
     cdef int i
@@ -62,6 +62,9 @@ cdef void finish_rle(unsigned char *input, int *input_pos,
 
 
 def encode(data):
+    """
+    Encodes PackBit encoded data.
+    """
     if len(data) == 0:
         return data
 
