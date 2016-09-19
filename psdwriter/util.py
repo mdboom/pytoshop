@@ -12,7 +12,7 @@ import struct
 import sys
 
 
-DEBUG = False
+DEBUG = True
 
 
 def read_value(fd, fmt, endian='>'):
@@ -240,3 +240,21 @@ def ensure_bigendian(arr):
         return arr.byteswap().view(arr.dtype.newbyteorder('>'))
 
     return arr
+
+
+def unpack_bitflags(value, nbits):
+    """
+    Unpack a bitfield into its constituent parts.
+    """
+    return [bool(value & (1 << i)) for i in range(nbits)]
+
+
+def pack_bitflags(*values):
+    """
+    Pack separate booleans back into a bit field.
+    """
+    result = 0
+    for i, val in enumerate(values):
+        if val:
+            result |= (1 << i)
+    return result

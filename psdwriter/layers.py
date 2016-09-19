@@ -148,16 +148,11 @@ class LayerMask(t.HasTraits):
     total_length.__doc__ = docs.total_length
 
     def _get_mask_flags(self):
-        mask_flags = 0
-        if self.user_mask_density is not None:
-            mask_flags |= 1
-        if self.user_mask_feather is not None:
-            mask_flags |= 2
-        if self.vector_mask_density is not None:
-            mask_flags |= 4
-        if self.vector_mask_feather is not None:
-            mask_flags |= 8
-        return mask_flags
+        return util.pack_bitflags(
+            self.user_mask_density is not None,
+            self.user_mask_feather is not None,
+            self.vector_mask_density is not None,
+            self.vector_mask_feather is not None)
 
     @classmethod
     @util.trace_read
@@ -181,10 +176,11 @@ class LayerMask(t.HasTraits):
         d['default_color'] = bool(util.read_value(fd, 'B'))
 
         flags = util.read_value(fd, 'B')
-        d['position_relative_to_layer'] = bool(flags & 1)
-        d['layer_mask_disabled'] = bool(flags & 2)
-        d['invert_layer_mask_when_blending'] = bool(flags & 4)
-        d['user_mask_from_rendering_other_data'] = bool(flags & 8)
+        (d['position_relative_to_layer'],
+         d['layer_mask_disabled'],
+         d['invert_layer_mask_when_blending'],
+         d['user_mask_from_rendering_other_data']) = util.unpack_bitflags(
+             flags, 4)
 
         util.log("default_color: {}, flags: {}", d['default_color'], flags)
 
@@ -195,13 +191,18 @@ class LayerMask(t.HasTraits):
 
         if flags & 16:
             mask_parameters = util.read_value(fd, 'B')
-            if mask_parameters & 1:
+            (has_user_mask_density,
+             has_user_mask_feather,
+             has_vector_mask_density,
+             has_vector_mask_feather) = util.unpack_bitflags(
+                 mask_parameters, 4)
+            if has_user_mask_density:
                 d['user_mask_density'] = util.read_value(fd, 'B')
-            if mask_parameters & 2:
+            if has_user_mask_feather:
                 d['user_mask_feather'] = util.read_value(fd, 'd')
-            if mask_parameters & 4:
+            if has_vector_mask_density:
                 d['vector_mask_density'] = util.read_value(fd, 'B')
-            if mask_parameters & 8:
+            if has_vector_mask_feather:
                 d['vector_mask_feather'] = util.read_value(fd, 'd')
 
         d['real_flags'] = util.read_value(fd, 'B')
@@ -248,31 +249,27 @@ class LayerMask(t.HasTraits):
         write_rectangle(self.top, self.left, self.bottom, self.right)
         write_default_color(self.default_color)
 
-        flags = 0
-        if self.position_relative_to_layer:
-            flags |= 1
-        if self.layer_mask_disabled:
-            flags |= 2
-        if self.invert_layer_mask_when_blending:
-            flags |= 4
-        if self.user_mask_from_rendering_other_data:
-            flags |= 8
         mask_flags = self._get_mask_flags()
-        if mask_flags:
-            flags |= 16
+
+        flags = util.pack_bitflags(
+            self.position_relative_to_layer,
+            self.layer_mask_disabled,
+            self.invert_layer_mask_when_blending,
+            self.user_mask_from_rendering_other_data,
+            mask_flags)
 
         util.write_value(fd, 'B', flags)
 
         if mask_flags:
             util.write_value(fd, 'B', mask_flags)
 
-            if self.user_mask_density:
+            if self.user_mask_density is not None:
                 util.write_value(fd, 'B', self.user_mask_density)
-            if self.user_mask_feather:
+            if self.user_mask_feather is not None:
                 util.write_value(fd, 'd', self.user_make_feather)
-            if self.vector_mask_density:
+            if self.vector_mask_density is not None:
                 util.write_value(fd, 'B', self.vector_mask_density)
-            if self.vector_mask_feather:
+            if self.vector_mask_feather is not None:
                 util.write_value(fd, 'd', self.vector_mask_feather)
 
         util.write_value(fd, 'B', self.real_flags)
@@ -480,9 +477,12 @@ class LayerRecord(t.HasTraits):
         opacity = util.read_value(fd, 'B')
         clipping = bool(util.read_value(fd, 'B'))
         flags = util.read_value(fd, 'B')
-        transparency_protected = bool(flags & 1)
-        visible = not bool(flags & 2)
-        pixel_data_irrelevant = bool(flags & 16)
+        (transparency_protected,
+         visible,
+         _,
+         _,
+         pixel_data_irrelevant) = util.unpack_bitflags(flags, 5)
+        visible = not visible
         fd.seek(1, 1)  # filler
 
         util.log(
@@ -561,13 +561,12 @@ class LayerRecord(t.HasTraits):
         fd.write(self.blend_mode)
         util.write_value(fd, 'B', self.opacity)
         util.write_value(fd, 'B', int(self.clipping))
-        flags = 8
-        if self.transparency_protected:
-            flags |= 1
-        if not self.visible:
-            flags |= 2
-        if self.pixel_data_irrelevant:
-            flags |= 16
+        flags = util.pack_bitflags(
+            self.transparency_protected,
+            not self.visible,
+            False,
+            True,
+            self.pixel_data_irrelevant)
         util.write_value(fd, 'B', flags)
         fd.write(b'\0')  # filler
 

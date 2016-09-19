@@ -286,9 +286,7 @@ class VectorMask(TaggedBlock):
     def read_data(cls, fd, code, length, header):
         version = util.read_value(fd, 'I')
         flags = util.read_value(fd, 'I')
-        invert = bool(flags & 1)
-        not_link = bool(flags & 2)
-        disable = bool(flags & 4)
+        invert, not_link, disable = util.unpack_bitflags(flags, 3)
 
         util.log(
             "version: {}, invert: {}, not_link: {}, disable: {}",
@@ -310,13 +308,7 @@ class VectorMask(TaggedBlock):
     def write_data(self, fd, header):
         util.write_value(fd, 'I', self.version)
 
-        flags = 0
-        if self.invert:
-            flags |= 1
-        if self.not_link:
-            flags |= 2
-        if self.disable:
-            flags |= 4
+        flags = util.pack_bitflags(self.invert, self.not_link, self.disable)
 
         util.write_value(fd, 'I', flags)
 
