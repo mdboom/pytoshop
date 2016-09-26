@@ -190,11 +190,11 @@ def trace_read(func):
     """
     @wraps(func)
     def wrapper(self, fd, *args):
-        log('>>> {} @ {}', repr(self), fd.tell())
+        log('>>> {} @ {}', self.__class__.__name__, fd.tell())
         _indent[0] += 1
         result = func(self, fd, *args)
         _indent[0] -= 1
-        log('<<< {} @ {}', repr(self), fd.tell())
+        log('<<< {} @ {}', self.__class__.__name__, fd.tell())
         return result
 
     return wrapper
