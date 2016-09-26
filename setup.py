@@ -7,8 +7,6 @@ from setuptools import setup
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 
-import numpy as np
-
 with open('README.rst') as readme_file:
     readme = readme_file.read()
 
@@ -16,6 +14,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
+    'cython',
     'numpy',
     'traitlets'
 ]
