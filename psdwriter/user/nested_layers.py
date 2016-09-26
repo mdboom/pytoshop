@@ -381,9 +381,9 @@ def _update_sizes(layers):
 
 def nested_layers_to_psd(
         layers,
+        color_mode,
         version=enums.Version.version_1,
         compression=enums.Compression.rle,
-        color_mode=enums.ColorMode.rgb,
         depth=None,
         size=None,
         vector_mask=False):
@@ -395,16 +395,16 @@ def nested_layers_to_psd(
     layers : list of `Layer` instances
         The hierarchy of layers we want to create.
 
+    color_mode : `enums.ColorMode`
+        The color mode of the resulting PSD file (as well as the input
+        image data).
+
     version : `enums.Version`, optional
         The version of the PSD spec to follow.
 
     compression : `enums.Compression`, optional
         The method of image compression to use for the layer image
         data.
-
-    color_mode : `enums.ColorMode`, optional
-        The color mode of the resulting PSD file (as well as the input
-        image data).
 
     depth : `enums.ColorDepth`, optional
         The color depth of the resulting image.  Must match the color

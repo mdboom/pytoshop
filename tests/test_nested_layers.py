@@ -40,7 +40,7 @@ def test_nested_layers_no_adjust():
     layers = nested_layers.psd_to_nested_layers(psd)
 
     psd2 = nested_layers.nested_layers_to_psd(
-        layers, size=(psd.width, psd.height))
+        layers, enums.ColorMode.rgb, size=(psd.width, psd.height))
 
     fd = io.BytesIO()
     psd2.write(fd)
@@ -76,7 +76,7 @@ def test_from_scratch(vector_mask):
     ]
 
     psd = nested_layers.nested_layers_to_psd(
-        layers, color_mode=enums.ColorMode.grayscale,
+        layers, enums.ColorMode.grayscale,
         vector_mask=vector_mask)
 
     buff = io.BytesIO()
@@ -105,7 +105,7 @@ def test_mixed_depth():
 
     with pytest.raises(ValueError):
         nested_layers.nested_layers_to_psd(
-            layers, color_mode=enums.ColorMode.grayscale)
+            layers, enums.ColorMode.grayscale)
 
 
 def test_mismatched_height():
@@ -123,7 +123,7 @@ def test_mismatched_height():
 
     with pytest.raises(ValueError):
         nested_layers.nested_layers_to_psd(
-            layers, color_mode=enums.ColorMode.grayscale)
+            layers, enums.ColorMode.grayscale)
 
 
 def test_mismatched_width():
@@ -141,7 +141,7 @@ def test_mismatched_width():
 
     with pytest.raises(ValueError):
         nested_layers.nested_layers_to_psd(
-            layers, color_mode=enums.ColorMode.grayscale)
+            layers, enums.ColorMode.grayscale)
 
 
 def test_no_images():
@@ -154,4 +154,5 @@ def test_no_images():
         ]
 
     with pytest.raises(ValueError):
-        nested_layers.nested_layers_to_psd(layers)
+        nested_layers.nested_layers_to_psd(
+            layers, enums.ColorMode.grayscale)
