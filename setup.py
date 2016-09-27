@@ -27,8 +27,7 @@ test_requirements = [
 extensions = [
     Extension(
         "psdwriter.packbits",
-        ["psdwriter/packbits.pyx"],
-        include_dirs=[np.get_include()]
+        ["psdwriter/packbits.pyx"]
     )
 ]
 

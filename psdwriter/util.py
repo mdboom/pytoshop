@@ -242,6 +242,20 @@ def ensure_bigendian(arr):
     return arr
 
 
+def ensure_native_endian(arr):
+    """
+    Ensure that a Numpy array is in native-endian order.
+
+    Returns a copy if the endianness needed to be changed.
+    """
+    order = arr.dtype.byteorder
+
+    if order != '=':
+        return arr.byteswap().view(arr.dtype.newbyteorder('='))
+
+    return arr
+
+
 def unpack_bitflags(value, nbits):
     """
     Unpack a bitfield into its constituent parts.

@@ -187,7 +187,8 @@ def decompress_zip_prediction(data, shape, depth, version):
         decoder = packbits.decode_prediction_16bit
 
     data = zlib.decompress(data)
-    image = decompress_raw(data, shape, depth, version)
+    image = util.ensure_native_endian(
+        decompress_raw(data, shape, depth, version))
     for i in range(len(image)):
         decoder(image[i].flatten())
     return image
@@ -320,8 +321,9 @@ def compress_zip_prediction(fd, image, depth, version):
 
     compressor = zlib.compressobj()
     for row in image:
-        row = util.ensure_bigendian(row.copy())
+        row = util.ensure_native_endian(row)
         encoder(row.flatten())
+        row = util.ensure_bigendian(row)
         fd.write(compressor.compress(row))
     fd.write(compressor.flush())
 compress_zip_prediction.__doc__ = compress_zip_prediction.__doc__.format(
@@ -506,7 +508,9 @@ def compress_constant_zip_prediction(
 
     row = _make_constant_row(value, width, depth)
     row = row.reshape((1, width))
+    row = util.ensure_native_endian(row)
     encoder(row.flatten())
+    row = util.ensure_bigendian(row)
     row = row.tobytes()
     compressor = zlib.compressobj()
     for i in range(rows):

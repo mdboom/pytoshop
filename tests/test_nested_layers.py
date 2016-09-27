@@ -26,7 +26,7 @@ def test_nested_layers():
 
     nested_layers.pprint_layers(layers)
 
-    psd2 = nested_layers.nested_layers_to_psd(layers)
+    psd2 = nested_layers.nested_layers_to_psd(layers, enums.ColorMode.rgb)
 
     fd = io.BytesIO()
     psd2.write(fd)
