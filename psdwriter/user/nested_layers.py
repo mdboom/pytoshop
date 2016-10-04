@@ -454,7 +454,8 @@ def nested_layers_to_psd(
     else:
         width, height = size
 
-    flat_layers, group_ids = _flatten_layers(layers, [], [], compression, vector_mask)
+    flat_layers, group_ids = _flatten_layers(
+        layers, [], [], compression, vector_mask)
 
     flat_layers = flat_layers[::-1]
     group_ids = group_ids[::-1]
