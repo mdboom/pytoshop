@@ -15,6 +15,7 @@ import traitlets as t
 
 from .. import core
 from .. import enums
+from .. import image_resources
 from .. import layers as l
 from .. import path
 from .. import tagged_block
@@ -33,7 +34,11 @@ class Layer(t.HasTraits):
     )
     opacity = t.Int(
         255, min=0, max=255,
-        opacity="Opacity. 0=transparent, 255=opaque"
+        help="Opacity. 0=transparent, 255=opaque"
+    )
+    group_id = t.Int(
+        0, min=0, max=((1 << 16) - 1),
+        help="Linked layer id"
     )
 
 
@@ -231,7 +236,7 @@ def psd_to_nested_layers(psdfile):
     return root.layers
 
 
-def _flatten_layers(layers, flat_layers, compression, vector_mask):
+def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
     for layer in layers:
         if isinstance(layer, Group):
             if layer.closed:
@@ -252,7 +257,10 @@ def _flatten_layers(layers, flat_layers, compression, vector_mask):
                 )
             )
 
-            _flatten_layers(layer.layers, flat_layers, compression, vector_mask)
+            group_ids.append(layer.group_id)
+
+            _flatten_layers(
+                layer.layers, flat_layers, group_ids, compression, vector_mask)
 
             flat_layers.append(
                 l.LayerRecord(
@@ -263,6 +271,8 @@ def _flatten_layers(layers, flat_layers, compression, vector_mask):
                     ]
                 )
             )
+
+            group_ids.append(0)
 
         elif isinstance(layer, Image):
             channels = dict(
@@ -305,7 +315,9 @@ def _flatten_layers(layers, flat_layers, compression, vector_mask):
                 )
             )
 
-    return flat_layers
+            group_ids.append(layer.group_id)
+
+    return flat_layers, group_ids
 
 
 def _adjust_positions(layers):
@@ -442,7 +454,11 @@ def nested_layers_to_psd(
     else:
         width, height = size
 
-    flat_layers = _flatten_layers(layers, [], compression, vector_mask)[::-1]
+    flat_layers, group_ids = _flatten_layers(layers, [], [], compression, vector_mask)
+
+    flat_layers = flat_layers[::-1]
+    group_ids = group_ids[::-1]
+    group_id_data = np.array(group_ids, '>u2').tobytes()
 
     f = core.PsdFile(
         version=version,
@@ -455,6 +471,10 @@ def nested_layers_to_psd(
             layer_info=l.LayerInfo(
                 layer_records=flat_layers
             )
+        ),
+        image_resources=image_resources.ImageResources(
+            blocks=[image_resources.ImageResourceBlock(
+                resource_id=1026, data=group_id_data)]
         )
     )
 

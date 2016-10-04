@@ -63,7 +63,8 @@ class ImageResourceBlock(t.HasTraits):
         data_length = util.read_value(fd, 'I')
         data = fd.read(data_length)
 
-        util.log("resource_id: {}, data_length: {}", resource_id, data_length)
+        util.log("resource_id: {}, name: {}, data_length: {}",
+                 resource_id, name, data_length)
 
         if data_length % 2 != 0:
             fd.read(1)
