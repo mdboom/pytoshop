@@ -10,7 +10,7 @@ def decode_prediction_8bit(data):
 
 
 def decode_prediction_16bit(data):
-    cdef unsigned char [:] input = data
+    cdef unsigned short [:] input = data
 
     cdef int i
 
