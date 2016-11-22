@@ -13,8 +13,13 @@ import numpy as np
 
 
 from . import enums
-from . import packbits
 from . import util
+
+
+try:
+    from . import packbits
+except ImportError:
+    pass
 
 
 _decompress_params = """

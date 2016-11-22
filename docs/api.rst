@@ -45,7 +45,6 @@ Codecs
    :toctree: _generated
 
    codecs
-   packbits
 
 Utilities
 ---------
