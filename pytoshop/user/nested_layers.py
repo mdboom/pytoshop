@@ -125,9 +125,11 @@ def _iterate_all_images(layers):
     """
     if isinstance(layers, list):
         for layer in layers:
-            yield from _iterate_all_images(layer)
+            for sublayer in _iterate_all_images(layer):
+                yield sublayer
     if isinstance(layers, Group):
-        yield from _iterate_all_images(layers.layers)
+        for sublayer in _iterate_all_images(layers.layers):
+            yield sublayer
     elif isinstance(layers, Image):
         yield layers
 

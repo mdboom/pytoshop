@@ -6,6 +6,9 @@ Enumerated values used throughout the library.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 import enum
 
 

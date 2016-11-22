@@ -6,6 +6,9 @@ Coders and decoders for the various compression types in PSD.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 import zlib
 
 
@@ -263,8 +266,11 @@ def compress_raw(fd, image, depth, version):
 {}
     """
     image = normalize_image(image, depth)
-    for row in image:
-        fd.write(row)
+    if len(image.shape) == 2:
+        for row in image:
+            fd.write(row)
+    else:
+        fd.write(image)
 
 
 compress_raw.__doc__ = compress_raw.__doc__.format(_compress_params)

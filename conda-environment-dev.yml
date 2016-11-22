@@ -9,3 +9,4 @@ dependencies:
 - traitlets=4.3.0=py35_0
 - coverage
 - flake8
+- six

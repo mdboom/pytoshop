@@ -6,6 +6,9 @@ The core objects, including the `PsdFile` and its `Header`.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 import struct
 
 

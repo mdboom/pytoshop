@@ -4,3 +4,4 @@ dependencies:
 - numpy=1.11.1=py35_1
 - python=3.5.2=0
 - traitlets=4.3.0=py35_0
+- six

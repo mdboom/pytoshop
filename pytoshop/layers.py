@@ -6,6 +6,9 @@ Sections related to image layers.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 import collections
 import struct
 
@@ -292,7 +295,7 @@ class ChannelImageData(t.HasTraits):
     def __init__(self, image=None, fd=None, offset=None, size=None,
                  shape=None, depth=None, version=None,
                  compression=enums.Compression.raw):
-        super().__init__(compression=compression)
+        t.HasTraits.__init__(self, compression=compression)
         if image is not None:
             if (fd is not None or offset is not None or size is not None or
                     shape is not None or depth is not None or

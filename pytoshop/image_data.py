@@ -6,6 +6,9 @@ The `ImageData` section.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 import struct
 
 
@@ -30,7 +33,7 @@ class ImageData(t.HasTraits):
     def __init__(self, channels=None, fd=None, offset=None, size=None,
                  height=None, width=None, num_channels=None, depth=None,
                  version=None, compression=enums.Compression.raw):
-        super().__init__(compression=compression)
+        t.HasTraits.__init__(self, compression=compression)
         if channels is not None:
             if (fd is not None or offset is not None or size is not None or
                     height is not None or width is not None or

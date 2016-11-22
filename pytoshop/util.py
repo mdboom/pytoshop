@@ -6,6 +6,9 @@ Miscellaneous utilities.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 from functools import wraps
 import math
 import struct

@@ -4,6 +4,9 @@
 Documentation snippets.
 """
 
+from __future__ import unicode_literals, absolute_import
+
+
 read_single = """
 Instantiate from a file-like object.
 

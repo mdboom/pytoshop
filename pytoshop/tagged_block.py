@@ -6,6 +6,12 @@
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
+import six
+
+
 import traitlets as t
 
 
@@ -22,7 +28,7 @@ class _TaggedBlockMeta(type(t.HasTraits)):
     mapping = {}
 
     def __new__(cls, name, parents, dct):
-        new_cls = super().__new__(cls, name, parents, dct)
+        new_cls = type(t.HasTraits).__new__(cls, name, parents, dct)
 
         if 'code' in dct and isinstance(dct['code'], bytes):
             if dct['code'] in cls.mapping:
@@ -32,7 +38,8 @@ class _TaggedBlockMeta(type(t.HasTraits)):
         return new_cls
 
 
-class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
+@six.add_metaclass(_TaggedBlockMeta)
+class TaggedBlock(t.HasTraits):
     _large_layer_info_codes = set([
         b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
         b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',

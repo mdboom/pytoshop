@@ -6,7 +6,13 @@ Handle Bézier paths.
 """
 
 
+from __future__ import unicode_literals, absolute_import
+
+
 import struct
+
+
+import six
 
 
 import traitlets as t
@@ -32,7 +38,7 @@ class _PathRecordMeta(type(t.HasTraits)):
     mapping = {}
 
     def __new__(cls, name, parents, dct):
-        new_cls = super().__new__(cls, name, parents, dct)
+        new_cls = type(t.HasTraits).__new__(cls, name, parents, dct)
 
         if 'type' in dct:
             if dct['type'] in cls.mapping:
@@ -42,7 +48,8 @@ class _PathRecordMeta(type(t.HasTraits)):
         return new_cls
 
 
-class PathRecord(t.HasTraits, metaclass=_PathRecordMeta):
+@six.add_metaclass(_PathRecordMeta)
+class PathRecord(t.HasTraits):
     def length(self, header):
         return 26
 
