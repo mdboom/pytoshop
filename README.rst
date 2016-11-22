@@ -13,6 +13,10 @@ pytoshop
         :target: https://pytoshop.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
+.. image:: https://img.shields.io/codecov/c/github/mdboom/pytoshop.svg
+        :target: https://codecov.io/gh/mdboom/pytoshop
+        :alt: Coverage status
+
 
 A Python-based library to read and write Photoshop PSD and PSB files.
 
