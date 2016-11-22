@@ -11,8 +11,8 @@ import pytest
 import traitlets as t
 
 
-from psdwriter import core
-from psdwriter import enums
+from pytoshop import core
+from pytoshop import enums
 
 
 class TestHeader(object):

@@ -9,9 +9,9 @@ import numpy as np
 import pytest
 
 
-import psdwriter
-from psdwriter import enums
-from psdwriter.user import nested_layers
+import pytoshop
+from pytoshop import enums
+from pytoshop.user import nested_layers
 
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'psd_files')
@@ -20,30 +20,30 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), 'psd_files')
 def test_nested_layers():
     filename = os.path.join(DATA_PATH, 'group.psd')
     with open(filename, 'rb') as fd:
-        psd = psdwriter.PsdFile.read(fd)
+        psd = pytoshop.PsdFile.read(fd)
 
-    layers = nested_layers.psd_to_nested_layers(psd)
+        layers = nested_layers.psd_to_nested_layers(psd)
 
-    nested_layers.pprint_layers(layers)
+        nested_layers.pprint_layers(layers)
 
-    psd2 = nested_layers.nested_layers_to_psd(layers, enums.ColorMode.rgb)
+        psd2 = nested_layers.nested_layers_to_psd(layers, enums.ColorMode.rgb)
 
-    fd = io.BytesIO()
-    psd2.write(fd)
+        fd = io.BytesIO()
+        psd2.write(fd)
 
 
 def test_nested_layers_no_adjust():
     filename = os.path.join(DATA_PATH, 'group.psd')
     with open(filename, 'rb') as fd:
-        psd = psdwriter.PsdFile.read(fd)
+        psd = pytoshop.PsdFile.read(fd)
 
-    layers = nested_layers.psd_to_nested_layers(psd)
+        layers = nested_layers.psd_to_nested_layers(psd)
 
-    psd2 = nested_layers.nested_layers_to_psd(
-        layers, enums.ColorMode.rgb, size=(psd.width, psd.height))
+        psd2 = nested_layers.nested_layers_to_psd(
+            layers, enums.ColorMode.rgb, size=(psd.width, psd.height))
 
-    fd = io.BytesIO()
-    psd2.write(fd)
+        fd = io.BytesIO()
+        psd2.write(fd)
 
 
 def test_errors():
@@ -53,7 +53,7 @@ def test_errors():
 
 @pytest.mark.parametrize("vector_mask", (True, False))
 def test_from_scratch(vector_mask):
-    from psdwriter.user.nested_layers import Group, Image
+    from pytoshop.user.nested_layers import Group, Image
 
     img1 = np.empty((100, 80), dtype=np.uint8)
     img2 = np.empty((100, 80), dtype=np.uint8)
@@ -84,11 +84,11 @@ def test_from_scratch(vector_mask):
 
     buff.seek(0)
 
-    psdwriter.read(buff)
+    pytoshop.read(buff)
 
 
 def test_mixed_depth():
-    from psdwriter.user.nested_layers import Group, Image
+    from pytoshop.user.nested_layers import Group, Image
 
     img1 = np.empty((100, 80), dtype=np.uint8)
     img2 = np.empty((100, 80), dtype=np.uint16)
@@ -109,7 +109,7 @@ def test_mixed_depth():
 
 
 def test_mismatched_height():
-    from psdwriter.user.nested_layers import Group, Image
+    from pytoshop.user.nested_layers import Group, Image
 
     img1 = np.empty((100, 80), dtype=np.uint8)
 
@@ -127,7 +127,7 @@ def test_mismatched_height():
 
 
 def test_mismatched_width():
-    from psdwriter.user.nested_layers import Group, Image
+    from pytoshop.user.nested_layers import Group, Image
 
     img1 = np.empty((100, 80), dtype=np.uint8)
 
@@ -145,7 +145,7 @@ def test_mismatched_width():
 
 
 def test_no_images():
-    from psdwriter.user.nested_layers import Group
+    from pytoshop.user.nested_layers import Group
 
     layers = [
         Group(

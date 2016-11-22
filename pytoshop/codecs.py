@@ -338,7 +338,8 @@ compressors = {
 }
 
 
-def compress_image(fd, image, compression, shape, num_channels, depth, version):
+def compress_image(fd, image, compression, shape, num_channels, depth,
+                   version):
     """
     Write an image with the given compression type.
 

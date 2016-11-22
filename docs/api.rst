@@ -4,7 +4,7 @@
 API
 ===
 
-.. currentmodule:: psdwriter
+.. currentmodule:: pytoshop
 
 User api
 --------

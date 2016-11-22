@@ -288,37 +288,87 @@ class ChannelImageData(t.HasTraits):
         default_value=enums.Compression.rle,
         help="Compression method. See `enums.Compression`."
     )
-    image = t.TraitType(
-        help="2-D Numpy array of a single plane of image data. "
-             "Must be of shape ``(height, width)`` corresponding to the size "
-             "of the layer.  Must be unsigned int with a bit depth matching "
-             "that of the whole PSD file."
-    )
 
-    @t.validate('image')
-    def _valid_image(self, proposal):
-        value = proposal['value']
-        return value
+    def __init__(self, image=None, fd=None, offset=None, size=None,
+                 shape=None, depth=None, version=None,
+                 compression=enums.Compression.raw):
+        super().__init__(compression=compression)
+        if image is not None:
+            if (fd is not None or offset is not None or size is not None or
+                    shape is not None or depth is not None or
+                    version is not None):
+                raise ValueError(
+                    "May not provide both image and other parameters")
+            self._image = image
+        else:
+            if image is not None:
+                raise ValueError(
+                    "May not provide both image and other parameters")
+            self._image = None
+            self._fd = fd
+            self._offset = offset
+            self._size = size
+            self._shape = shape
+            self._depth = depth
+            self._version = version
+
+    @property
+    def image(self):
+        if self._image is not None:
+            return self._image
+        tell = self._fd.tell()
+        try:
+            self._fd.seek(self._offset)
+            data = self._fd.read(self._size)
+            return codecs.decompress_image(
+                data, self.compression, self._shape, self._depth,
+                self._version)
+        finally:
+            self._fd.seek(tell)
+
+    @image.setter
+    def image(self, image):
+        self._image = image
+
+    @property
+    def shape(self):
+        if self._image is not None:
+            return self._image.shape
+        return self._shape
+
+    @property
+    def dtype(self):
+        return np.dtype(codecs.color_depth_dtype_map[self._depth])
 
     @classmethod
     @util.trace_read
     def read(cls, fd, header, shape, size):
         compression = util.read_value(fd, 'H')
         util.log("compression: {}", enums.Compression(compression))
-        data = fd.read(size)
-        image = codecs.decompress_image(
-            data, compression, shape, header.depth,
-            header.version)
-        return cls(image=image, compression=compression)
+        offset = fd.tell()
+        fd.seek(size, 1)
+
+        return cls(fd=fd, offset=offset, size=size, shape=shape,
+                   depth=header.depth, version=header.version,
+                   compression=compression)
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header, shape):
         start = fd.tell()
         util.write_value(fd, 'H', self.compression)
-        codecs.compress_image(
-            fd, self.image, self.compression, shape, 1,
-            header.depth, header.version)
+        if self._image is not None:
+            codecs.compress_image(
+                fd, self.image, self.compression, shape, 1,
+                header.depth, header.version)
+        else:
+            tell = self._fd.tell()
+            try:
+                self._fd.seek(self._offset)
+                data = self._fd.read(self._size)
+            finally:
+                self._fd.seek(tell)
+            fd.write(data)
         return fd.tell() - start
     write.__doc__ = docs.write
 

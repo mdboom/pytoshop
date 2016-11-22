@@ -85,17 +85,17 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/psdwriter.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/pytoshop.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/psdwriter.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/pytoshop.qhc"
 
 devhelp:
 	$(SPHINXBUILD) -b devhelp $(ALLSPHINXOPTS) $(BUILDDIR)/devhelp
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/psdwriter"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/psdwriter"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/pytoshop"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/pytoshop"
 	@echo "# devhelp"
 
 epub:

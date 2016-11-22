@@ -24,30 +24,30 @@ test_requirements = [
 
 extensions = [
     Extension(
-        "psdwriter.packbits",
-        ["psdwriter/packbits.pyx"]
+        "pytoshop.packbits",
+        ["pytoshop/packbits.pyx"]
     )
 ]
 
 setup(
-    name='psdwriter',
+    name='pytoshop',
     version='0.1.0',
     description="A Python-based library to write Photoshop PSD files",
     long_description=readme + '\n\n' + history,
     author="Michael Droettboom",
     author_email='mdboom@gmail.com',
-    url='https://github.com/mdboom/psdwriter',
+    url='https://github.com/mdboom/pytoshop',
     packages=[
-        'psdwriter',
-        'psdwriter.user'
+        'pytoshop',
+        'pytoshop.user'
     ],
-    package_dir={'psdwriter':
-                 'psdwriter'},
+    package_dir={'pytoshop':
+                 'pytoshop'},
     include_package_data=True,
     install_requires=requirements,
     license="BSD license",
     zip_safe=False,
-    keywords='psdwriter',
+    keywords='pytoshop',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',

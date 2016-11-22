@@ -15,7 +15,7 @@ Types of Contributions
 Report Bugs
 ~~~~~~~~~~~
 
-Report bugs at https://github.com/mdboom/psdwriter/issues.
+Report bugs at https://github.com/mdboom/pytoshop/issues.
 
 If you are reporting a bug, please include:
 
@@ -38,14 +38,14 @@ and "help wanted" is open to whoever wants to implement it.
 Write Documentation
 ~~~~~~~~~~~~~~~~~~~
 
-psdwriter could always use more documentation, whether as part of the
-official psdwriter docs, in docstrings, or even on the web in blog posts,
+pytoshop could always use more documentation, whether as part of the
+official pytoshop docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 Submit Feedback
 ~~~~~~~~~~~~~~~
 
-The best way to send feedback is to file an issue at https://github.com/mdboom/psdwriter/issues.
+The best way to send feedback is to file an issue at https://github.com/mdboom/pytoshop/issues.
 
 If you are proposing a feature:
 
@@ -57,17 +57,17 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up `psdwriter` for local development.
+Ready to contribute? Here's how to set up `pytoshop` for local development.
 
-1. Fork the `psdwriter` repo on GitHub.
+1. Fork the `pytoshop` repo on GitHub.
 2. Clone your fork locally::
 
-    $ git clone git@github.com:your_name_here/psdwriter.git
+    $ git clone git@github.com:your_name_here/pytoshop.git
 
 3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
 
-    $ mkvirtualenv psdwriter
-    $ cd psdwriter/
+    $ mkvirtualenv pytoshop
+    $ cd pytoshop/
     $ pip install -r requirements_dev.txt
     $ pip install -r requirements.txt
     $ python setup.py develop
@@ -80,11 +80,11 @@ Ready to contribute? Here's how to set up `psdwriter` for local development.
 
 5. When you're done making changes, check that your changes pass flake8 and the tests::
 
-    $ flake8 psdwriter tests
+    $ flake8 pytoshop tests
     $ py.test
 
     # Generate a coverage report
-    $ py.test --cov=psdwriter --cov-report html
+    $ py.test --cov=pytoshop --cov-report html
 
 6. Commit your changes and push your branch to GitHub::
 
@@ -104,7 +104,7 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
 3. The pull request should work for Python 3.4 and 3.5. Check
-   https://travis-ci.org/mdboom/psdwriter/pull_requests
+   https://travis-ci.org/mdboom/pytoshop/pull_requests
    and make sure that the tests pass for all supported Python versions.
 
 Tips
@@ -112,4 +112,4 @@ Tips
 
 To run a subset of tests::
 
-$ py.test tests.test_psdwriter
+$ py.test tests.test_pytoshop

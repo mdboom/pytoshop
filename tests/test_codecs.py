@@ -9,8 +9,8 @@ from numpy.testing import assert_array_equal
 import pytest
 
 
-from psdwriter import codecs
-from psdwriter import enums
+from pytoshop import codecs
+from pytoshop import enums
 
 
 @pytest.mark.parametrize("depth", (8, 16))

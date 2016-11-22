@@ -110,7 +110,7 @@ class TaggedBlock(t.HasTraits, metaclass=_TaggedBlockMeta):
 
 class GenericTaggedBlock(TaggedBlock):
     """
-    A generic `TaggedBlock` subclass for tag codes ``psdwriter``
+    A generic `TaggedBlock` subclass for tag codes ``pytoshop``
     doesn't know about.
     """
 

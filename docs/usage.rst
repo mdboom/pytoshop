@@ -4,10 +4,10 @@ Usage
 
 To read a file and write it back out again::
 
-    import psdwriter
+    import pytoshop
 
     with open('image.psd', 'rb') as fd:
-        psd = psdwriter.read(fd)
+        psd = pytoshop.read(fd)
 
     with open('updated.psd', 'wb') as fd:
         psd.write(fd)

@@ -1,0 +1,4 @@
+pytest
+sphinx
+coverage
+flake8

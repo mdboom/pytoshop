@@ -22,7 +22,7 @@ class ImageResourceBlock(t.HasTraits):
     """
     Stores a single image resource block.
 
-    ``psdwriter`` currently doesn't deeply parse image resource
+    ``pytoshop`` currently doesn't deeply parse image resource
     blocks.  The raw data is merely retained for round-tripping.
     """
     resource_id = t.Int(
@@ -100,6 +100,15 @@ class ImageResources(t.HasTraits):
     def total_length(self, header):
         return 4 + self.length(header)
     total_length.__doc__ = docs.total_length
+
+    def get_block(self, resource_id):
+        """
+        Get the first block with the given resource id.
+        """
+        for block in self.blocks:
+            if block.resource_id == resource_id:
+                return block
+        return None
 
     @classmethod
     @util.trace_read

@@ -9,7 +9,7 @@ import os
 import pytest
 
 
-import psdwriter
+import pytoshop
 
 
 path = os.path.join(os.path.dirname(__file__), 'psd_files', '*.psd')
@@ -21,13 +21,13 @@ def test_files(filename):
         return
 
     with open(filename, 'rb') as fd:
-        f = psdwriter.read(fd)
+        f = pytoshop.read(fd)
 
         fd2 = io.BytesIO()
         f.write(fd2)
 
     fd2.seek(0)
-    f = psdwriter.PsdFile.read(fd2)
+    f = pytoshop.PsdFile.read(fd2)
 
 
 @pytest.mark.parametrize("filename", glob.glob(path))
@@ -36,7 +36,7 @@ def test_convert_to_version2(filename):
         return
 
     with open(filename, 'rb') as fd:
-        f = psdwriter.read(fd)
+        f = pytoshop.read(fd)
         f.version = 2
 
         # Disable compression just to make these tests faster
@@ -48,4 +48,4 @@ def test_convert_to_version2(filename):
         f.write(fd2)
 
     fd2.seek(0)
-    f = psdwriter.PsdFile.read(fd2)
+    f = pytoshop.PsdFile.read(fd2)

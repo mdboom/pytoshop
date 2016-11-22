@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 
-import psdwriter
-from psdwriter import image_data
+import pytoshop
+from pytoshop import image_data
 
 
 def test_image_data_invalid_shape():
@@ -23,7 +23,7 @@ def test_image_data_invalid_dtype():
 
 
 def test_image_valid_size():
-    psdwriter.PsdFile(
+    pytoshop.PsdFile(
         version=1,
         num_channels=3,
         height=256,
@@ -35,7 +35,7 @@ def test_image_valid_size():
 
 
 def test_image_invalid_size():
-    psd = psdwriter.PsdFile(
+    psd = pytoshop.PsdFile(
         version=1,
         num_channels=3,
         height=256,

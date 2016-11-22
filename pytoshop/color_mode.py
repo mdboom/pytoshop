@@ -29,7 +29,7 @@ class ColorModeData(t.HasTraits):
     just preserve the contents of the duotone information when reading
     and writing the file.
 
-    Note that ``psdwriter`` doesn't do anything meaningful for color
+    Note that ``pytoshop`` doesn't do anything meaningful for color
     mode data, and only stores the raw bytes in order to round-trip.
     """
     data = t.Bytes(

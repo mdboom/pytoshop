@@ -6,6 +6,7 @@ Convert a PSD file to/from nested layers.
 """
 
 
+from collections import OrderedDict
 import sys
 
 
@@ -161,7 +162,11 @@ def psd_to_nested_layers(psdfile):
         A representation of the parsed hierarchy from the file.
     """
     if not isinstance(psdfile, core.PsdFile):
-        raise TypeError("psdfile must be a psdwriter.core.PsdFile instance")
+        raise TypeError("psdfile must be a pytoshop.core.PsdFile instance")
+
+    group_ids = psdfile.image_resources.get_block(1026)
+    if group_ids is not None:
+        group_ids = np.frombuffer(group_ids.data, '>u2')
 
     layers = psdfile.layer_and_mask_info.layer_info.layer_records
 
@@ -178,6 +183,10 @@ def psd_to_nested_layers(psdfile):
         visible = layer.visible
         opacity = layer.opacity
         blend_mode = layer.blend_mode
+        if group_ids is not None:
+            group_id = int(group_ids[index])
+        else:
+            group_id = None
 
         if divider is not None:
             if divider.type in (enums.SectionDividerSetting.closed,
@@ -189,7 +198,8 @@ def psd_to_nested_layers(psdfile):
                         divider.type == enums.SectionDividerSetting.closed),
                     blend_mode=blend_mode,
                     visible=visible,
-                    opacity=opacity
+                    opacity=opacity,
+                    group_id=group_id
                 )
                 group_stack.append(group)
                 current_group.layers.append(group)
@@ -206,7 +216,8 @@ def psd_to_nested_layers(psdfile):
                         blend_mode=layer.blend_mode,
                         visible=layer.visible,
                         opacity=layer.opacity,
-                        layers=layers[1:]
+                        layers=layers[1:],
+                        group_id=group_id
                     )
 
                     group_stack[0].layers = [group]
@@ -225,11 +236,11 @@ def psd_to_nested_layers(psdfile):
                 left=layer.left,
                 bottom=layer.bottom,
                 right=layer.right,
-                channels=dict(
-                    (k, v.image) for (k, v) in layer.channels.items()),
+                channels=layer.channels,
                 blend_mode=blend_mode,
                 visible=visible,
-                opacity=opacity
+                opacity=opacity,
+                group_id=group_id
             )
             current_group.layers.append(layer)
 
@@ -275,10 +286,16 @@ def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
             group_ids.append(0)
 
         elif isinstance(layer, Image):
-            channels = dict(
-                (id, l.ChannelImageData(image=im, compression=compression))
-                for (id, im) in layer.channels.items()
-            )
+            channels = OrderedDict()
+            for id, im in layer.channels.items():
+                if isinstance(im, l.ChannelImageData):
+                    channels[id] = im
+                else:
+                    channels[id] = l.ChannelImageData(
+                        image=im, compression=compression)
+            if (enums.ChannelId.transparency in channels and
+                    np.all(channels[enums.ChannelId.transparency].image == 0)):
+                continue
 
             blocks = [
                 tagged_block.UnicodeLayerName(name=layer.name),
@@ -350,12 +367,17 @@ def _determine_channels_and_depth(layers, depth):
     num_channels = 0
     for image in _iterate_all_images(layers):
         for index, channel in image.channels.items():
+            if np.isscalar(channel):
+                continue
             num_channels = max(num_channels, index + 1)
             channel_depth = channel.dtype.itemsize * 8
             if depth is None:
                 depth = channel_depth
             elif depth != channel_depth:
                 raise ValueError("Different image depths in input")
+
+    if num_channels == 0 or depth is None:
+        raise ValueError("Can't determine num channels or depth")
 
     return num_channels, depth
 
@@ -368,10 +390,14 @@ def _update_sizes(layers):
         else:
             shape = None
             for index, channel in image.channels.items():
+                if np.isscalar(channel):
+                    continue
                 if shape is None:
                     shape = channel.shape
                 elif shape != channel.shape:
                     raise ValueError("Channels in image have different shapes")
+            if shape is None:
+                raise ValueError("Can't determine shape")
             height, width = shape
 
         if image.bottom is None:
