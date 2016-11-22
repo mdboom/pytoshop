@@ -127,6 +127,8 @@ def decompress_raw(data, shape, depth, version):
     # Make 2-dimensional
     image = arr.reshape(shape)
     return image
+
+
 decompress_raw.__doc__ = decompress_raw.__doc__.format(_decompress_params)
 
 
@@ -158,6 +160,8 @@ def decompress_rle(data, shape, depth, version):
 
     # Now pass along to the raw decoder to get a Numpy array
     return decompress_raw(b''.join(result), shape, depth, version)
+
+
 decompress_rle.__doc__ = decompress_rle.__doc__.format(_decompress_params)
 
 
@@ -169,6 +173,8 @@ def decompress_zip(data, shape, depth, version):
     """
     data = zlib.decompress(data)
     return decompress_raw(data, shape, depth, version)
+
+
 decompress_zip.__doc__ = decompress_zip.__doc__.format(_decompress_params)
 
 
@@ -197,6 +203,8 @@ def decompress_zip_prediction(data, shape, depth, version):
     for i in range(len(image)):
         decoder(image[i].flatten())
     return image
+
+
 decompress_zip_prediction.__doc__ = decompress_zip_prediction.__doc__.format(
     _decompress_params)
 
@@ -257,6 +265,8 @@ def compress_raw(fd, image, depth, version):
     image = normalize_image(image, depth)
     for row in image:
         fd.write(row)
+
+
 compress_raw.__doc__ = compress_raw.__doc__.format(_compress_params)
 
 
@@ -287,6 +297,8 @@ def compress_rle(fd, image, depth, version):
     fd.seek(start)
     fd.write(lengths.tobytes())
     fd.seek(end)
+
+
 compress_rle.__doc__ = compress_rle.__doc__.format(_compress_params)
 
 
@@ -301,6 +313,8 @@ def compress_zip(fd, image, depth, version):
     for row in image:
         fd.write(compressor.compress(row))
     fd.write(compressor.flush())
+
+
 compress_zip.__doc__ = compress_zip.__doc__.format(_compress_params)
 
 
@@ -331,6 +345,8 @@ def compress_zip_prediction(fd, image, depth, version):
         row = util.ensure_bigendian(row)
         fd.write(compressor.compress(row))
     fd.write(compressor.flush())
+
+
 compress_zip_prediction.__doc__ = compress_zip_prediction.__doc__.format(
     _compress_params)
 
@@ -441,6 +457,8 @@ def compress_constant_raw(fd, value, width, rows, depth, version):
         row = row.tobytes()
         for i in range(rows):
             fd.write(row)
+
+
 compress_constant_raw.__doc__ = compress_constant_raw.__doc__.format(
     _compress_constant_params)
 
@@ -468,6 +486,8 @@ def compress_constant_rle(fd, value, width, rows, depth, version):
 
     for i in range(rows):
         fd.write(packed)
+
+
 compress_constant_rle.__doc__ = compress_constant_rle.__doc__.format(
     _compress_constant_params)
 
@@ -489,6 +509,8 @@ def compress_constant_zip(fd, value, width, rows, depth, version):
         for i in range(rows):
             fd.write(compressor.compress(row))
         fd.write(compressor.flush())
+
+
 compress_constant_zip.__doc__ = compress_constant_zip.__doc__.format(
     _compress_constant_params)
 
@@ -522,6 +544,8 @@ def compress_constant_zip_prediction(
     for i in range(rows):
         fd.write(compressor.compress(row))
     fd.write(compressor.flush())
+
+
 compress_constant_zip_prediction.__doc__ = \
     compress_constant_zip_prediction.__doc__.format(
         _compress_constant_params)
