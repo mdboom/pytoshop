@@ -167,7 +167,7 @@ def decode_unicode_string(data):
     Decode Photoshop's definition of a `Unicode String
     <https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#UnicodeStringDefine>`__.
     """
-    return data[4:].decode('utf_16_be')
+    return data[4:].rstrip(b'\0').decode('utf_16_be')
 
 
 def encode_unicode_string(s):
