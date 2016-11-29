@@ -183,3 +183,10 @@ class PathRecordType(enum.IntEnum):
     path_fill_rule_record = 6
     clipboard_record = 7
     initial_fill_rule_record = 8
+
+
+class ImageResourceID(enum.IntEnum):
+    """
+    Ids for Image Resource blocks.
+    """
+    layers_group_info = 1026

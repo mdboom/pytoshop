@@ -166,9 +166,10 @@ def psd_to_nested_layers(psdfile):
     if not isinstance(psdfile, core.PsdFile):
         raise TypeError("psdfile must be a pytoshop.core.PsdFile instance")
 
-    group_ids = psdfile.image_resources.get_block(1026)
-    if group_ids is not None:
-        group_ids = np.frombuffer(group_ids.data, '>u2')
+    group_ids_block = psdfile.image_resources.get_block(
+        enums.ImageResourceID.layers_group_info)
+    if group_ids_block is not None:
+        group_ids = group_ids_block.group_ids
 
     layers = psdfile.layer_and_mask_info.layer_info.layer_records
 
@@ -487,7 +488,6 @@ def nested_layers_to_psd(
 
     flat_layers = flat_layers[::-1]
     group_ids = group_ids[::-1]
-    group_id_data = np.array(group_ids, '>u2').tobytes()
 
     f = core.PsdFile(
         version=version,
@@ -502,8 +502,8 @@ def nested_layers_to_psd(
             )
         ),
         image_resources=image_resources.ImageResources(
-            blocks=[image_resources.ImageResourceBlock(
-                resource_id=1026, data=group_id_data)]
+            blocks=[image_resources.LayersGroupInfo(
+                group_ids=group_ids)]
         )
     )
 
