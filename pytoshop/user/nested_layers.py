@@ -257,6 +257,9 @@ def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
                 divider_type = enums.SectionDividerSetting.closed
             else:
                 divider_type = enums.SectionDividerSetting.open
+
+            name_source = len(flat_layers)
+
             flat_layers.append(
                 l.LayerRecord(
                     name=layer.name,
@@ -281,7 +284,7 @@ def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
                     blocks=[
                         tagged_block.SectionDividerSetting(
                             type=enums.SectionDividerSetting.bounding),
-                        tagged_block.LayerNameSource(id=len(flat_layers))
+                        tagged_block.LayerNameSource(id=name_source)
                     ]
                 )
             )
