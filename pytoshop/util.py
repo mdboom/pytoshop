@@ -272,7 +272,7 @@ def log(msg, *args):  # pragma: no cover
 
 def is_set_to_default(obj):
     """
-    Returns ``True`` if a `traitlets.HasTraits` instance is set
+    Returns ``True`` if a ``traitlets.HasTraits`` instance is set
     entirely to its defaults.
     """
     traits = obj.traits()

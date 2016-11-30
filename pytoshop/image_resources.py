@@ -215,7 +215,7 @@ class BorderInfo(ImageResourceBlock):
     unit = t.Enum(
         list(enums.Units),
         default_value=enums.Units.inches,
-        help="Unit. See `enums.Unit`."
+        help="Unit. See `enums.Units`."
     )
 
     @classmethod
