@@ -53,6 +53,57 @@ class ColorMode(enum.IntEnum):
     lab = 9
 
 
+class ColorSpace(enum.IntEnum):
+    """
+    Color space ids.
+
+    Defines the meaning of the 4 color values in a color structure.
+
+    - ``rgb``: The first three values are *red*, *green*, and *blue*.
+      The are full 16-bit unsigned values as in Apple's ``RGBColor``
+      data structure.
+
+    - ``hsb``: The first three values are *hue*, *saturation*, and
+      *brightness*.  The are full unsigned 16-bit values as in Apple's
+      ``HSVColor`` data structure.
+
+    - ``cmyk``: The four values are *cyan*, *magenta*, *yellow* and
+      *black*.  The are full unsigned 16-bit values.  0 = 100% ink.
+
+    - ``lab``: The first three values are *lightness*, *a
+      chrominance*, and *b chrominance*.  Lightness is a 16-bit value
+      from 0 to 10000.  Chrominance components are each 16-bit values
+      from -12800 to 12700.  Gray values are represented by
+      chrominance components of 0.
+
+    - ``grayscale``: The first value in the color data is the gray
+      value from 0 to 10000.
+
+    Additional values are for "custom color spaces" which are not as
+    well documented:
+
+    - ``pantone``: Pantone® matching system.
+
+    - ``focoltone``: Focoltone matching system.
+
+    - ``trumatch``: Trumatch color.
+
+    - ``toyo_88_colorfinder_1050``: Toyo 88 colorfinder 1050.
+
+    - ``hks``: HKS colors.
+    """
+    rgb = 0
+    hsb = 1
+    cmyk = 2
+    pantone = 3
+    focoltone = 4
+    trumatch = 5
+    toyo_88_colorfinder_1050 = 6
+    lab = 7
+    grayscale = 8
+    hks = 10
+
+
 class BlendMode(bytes, enum.Enum):
     """
     Layer blend mode.
@@ -189,4 +240,104 @@ class ImageResourceID(enum.IntEnum):
     """
     Ids for Image Resource blocks.
     """
+    mac_print_info = 1001
+    mac_page_format_info = 1002
+    resolution_info = 1005
+    alpha_channel_names = 1006
+    caption = 1008
+    border_info = 1009
+    background_color = 1010
+    print_flags = 1011
+    grayscale_and_multichannel_halftoning_info = 1012
+    color_halftoning_info = 1013
+    duotone_halftoning_info = 1014
+    grayscale_and_multichannel_transfer_func = 1015
+    color_transfer_funcs = 1016
+    duotone_transfer_funcs = 1017
+    duotone_image_info = 1018
+    effective_black_and_white = 1019
+    eps_options = 1021
+    quick_mask_info = 1022
+    layer_state_info = 1024
     layers_group_info = 1026
+    iptc_naa = 1028
+    image_mode_for_raw = 1029
+    jpeg_quality = 1030
+    grid_and_guides_info = 1032
+    copyright_flag = 1034
+    url = 1035
+    thumbnail_resource = 1036
+    global_angle = 1037
+    icc_profile = 1039
+    watermark = 1040
+    icc_untagged_profile = 1041
+    effects_visible = 1042
+    spot_halftone = 1043
+    document_specific_ids_seed_number = 1044
+    unicode_alpha_names = 1045
+    indexed_color_table_count = 1046
+    transparency_index = 1047
+    global_altitude = 1049
+    slices = 1050
+    workflow_url = 1051
+    jump_to_xpep = 1052
+    alpha_identifiers = 1053
+    url_list = 1054
+    version_info = 1057
+    exif_data_1 = 1058
+    exif_data_2 = 1059
+    xmp_metadata = 1060
+    caption_digest = 1061
+    print_scale = 1062
+    pixel_aspect_ratio = 1064
+    layer_comps = 1065
+    alternate_duotone_colors = 1066
+    alternate_spot_colors = 1067
+    layer_selection_ids = 1069
+    hdr_toning_info = 1070
+    print_info = 1071
+    layer_groups_enabled = 1072
+    color_samplers_resource = 1073
+    measurement_scale = 1074
+    timeline_info = 1075
+    sheet_disclosure = 1076
+    display_info = 1077
+    onion_skins = 1078
+    count_info = 1080
+    print_info_cs5 = 1082
+    print_style = 1083
+    mac_nsprintinfo = 1084
+    win_devmode = 1085
+    auto_save_file_path = 1086
+    auto_save_format = 1087
+    path_selection_state = 1088
+    name_of_clipping_path = 2999
+    origin_path_info = 3000
+    image_ready_variables = 7000
+    image_ready_data_sets = 7001
+    image_ready_default_selected_state = 7002
+    image_ready_7_rollover_expanded_state = 7003
+    image_ready_rollover_expanded_state = 7004
+    image_ready_save_layer_settings = 7005
+    image_ready_version = 7006
+    lightroom_workflow = 8000
+    print_flags_info = 10000
+
+
+class Units(enum.IntEnum):
+    inches = 1
+    cm = 2
+    points = 3
+    picas = 4
+    columns = 5
+
+
+class GuideDirection(enum.IntEnum):
+    vertical = 0
+    horizontal = 1
+
+
+class PrintScaleStyle(enum.IntEnum):
+    centered = 0
+    size_to_fit = 1
+    user_defined = 2

@@ -178,6 +178,58 @@ def encode_unicode_string(s):
     return struct.pack('>L', len(s)) + s.encode('utf_16_be')
 
 
+def read_unicode_string(fd):
+    """
+    Read a UTF-16-BE-encoded Unicode string (with length) from a file.
+
+    Parameters
+    ----------
+    fd : file-like object
+        Must be opened for reading, seekable and in binary mode.
+
+    Returns
+    -------
+    value : str
+        The unicode value of the string.
+    """
+    length = read_value(fd, 'L')
+    data = fd.read(length * 2)
+    return data.rstrip(b'\0').decode('utf_16_be')
+
+
+def write_unicode_string(fd, value):
+    """
+    Write a UTF-16-BE-encoded Unicode string (with length) to a file.
+
+    Parameters
+    ----------
+    fd : file-like object
+        Must be opened for writing and in binary mode.
+
+    value : str
+        A unicode string value.
+    """
+    fd.write(encode_unicode_string(value))
+
+
+def unicode_string_length(value):
+    """
+    Calculates the total length of writing a UTF-16-BE-encoded Unicode
+    string (with length) to a file.
+
+    Parameters
+    ----------
+    value : str
+        A unicode string value.
+
+    Returns
+    -------
+    length : int
+        The length, in bytes.
+    """
+    return len(encode_unicode_string(value))
+
+
 def round_up(x, base=2):
     return int(base * math.ceil(float(x) / base))
 
