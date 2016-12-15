@@ -14,6 +14,9 @@ Improvements:
 
 Bugfixes:
 
+- Saving a layer with a constant color (in ``nested_layers_to_psd``)
+  now works correctly.
+
 - Unicode string decoding now properly handles trailing zeroes.
 
 - The "name source" on layers (when created from

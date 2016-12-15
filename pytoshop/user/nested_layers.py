@@ -394,33 +394,36 @@ def _update_sizes(layers):
             width = 0
             height = 0
         else:
-            shape = None
+            if image.bottom is not None and image.top is not None:
+                height = image.bottom - image.top
+            else:
+                height = None
+            if image.right is not None and image.left is not None:
+                width = image.right - image.left
+            else:
+                width = None
             for index, channel in image.channels.items():
                 if np.isscalar(channel):
                     continue
-                if shape is None:
-                    shape = channel.shape
-                elif shape != channel.shape:
-                    raise ValueError("Channels in image have different shapes")
-            if shape is None:
-                raise ValueError("Can't determine shape")
-            height, width = shape
+                if height is None:
+                    height = channel.shape[0]
+                if width is None:
+                    width = channel.shape[1]
+                if (height, width) != channel.shape:
+                    raise ValueError(
+                        "Channels in image have different shapes or do not "
+                        "match layer"
+                    )
+            if height is None or width is None:
+                raise ValueError(
+                    "Can't determine shape.  Set it explicitly."
+                )
 
         if image.bottom is None:
-            image.bottom = image.top + height
-        elif image.bottom - image.top != height:
-            raise ValueError(
-                "Channel height does not match layer size. "
-                "Got {}, expected {}".format(
-                    image.bottom - image.top, height))
+            image.bottom = (image.top or 0) + height
 
         if image.right is None:
-            image.right = image.left + width
-        elif image.right - image.left != width:
-            raise ValueError(
-                "Channel height does not match layer size. "
-                "Got {}, expected {}".format(
-                    image.right - image.left, width))
+            image.right = (image.left or 0) + width
 
 
 def nested_layers_to_psd(
