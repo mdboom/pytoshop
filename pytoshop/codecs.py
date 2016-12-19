@@ -295,7 +295,7 @@ def compress_rle(fd, image, depth, version):
         lengths = np.empty((len(image),), dtype='>u4')
 
     for i, row in enumerate(image):
-        packed = packbits.encode(row.tobytes())
+        packed = packbits.encode(row)
         lengths[i] = len(packed)
         fd.write(packed)
 

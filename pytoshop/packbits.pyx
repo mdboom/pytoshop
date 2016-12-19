@@ -1,4 +1,6 @@
 cimport cpython
+from cpython.buffer cimport (
+    Py_buffer, PyObject_GetBuffer, PyBuffer_Release, PyBUF_C_CONTIGUOUS)
 
 
 def decode_prediction_8bit(data):
@@ -100,15 +102,21 @@ def encode(data):
     """
     Encodes PackBit encoded data.
     """
-    if len(data) == 0:
-        return data
+    cdef Py_buffer buff
+    if PyObject_GetBuffer(
+            data, &buff, PyBUF_C_CONTIGUOUS):
+        raise ValueError("Couldn't get buffer")
 
-    if len(data) == 1:
-        return b'\x00' + data
+    if buff.len == 0:
+        PyBuffer_Release(&buff)
+        return data.tobytes()
 
-    cdef unsigned char *input
-    cdef Py_ssize_t input_size
-    cpython.PyBytes_AsStringAndSize(data, <char **>&input, &input_size)
+    if buff.len == 1:
+        PyBuffer_Release(&buff)
+        return b'\x00' + data.tobytes()
+
+    cdef unsigned char *input = <unsigned char *>buff.buf
+    cdef Py_ssize_t input_size = buff.len
 
     output_obj = cpython.PyBytes_FromStringAndSize(NULL, input_size * 2)
     cdef unsigned char *output
@@ -165,5 +173,7 @@ def encode(data):
         repeat_count += 1
         finish_rle(
             input, &input_pos, output, &output_pos, repeat_count)
+
+    PyBuffer_Release(&buff)
 
     return output_obj[:output_pos]
