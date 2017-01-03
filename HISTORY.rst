@@ -2,6 +2,13 @@
 History
 =======
 
+0.3.1
+-----
+
+Bugfixes:
+
+- Fix a bug when writing a layer of width 1.
+
 0.3.0
 -----
 

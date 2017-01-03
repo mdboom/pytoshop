@@ -109,11 +109,11 @@ def encode(data):
 
     if buff.len == 0:
         PyBuffer_Release(&buff)
-        return data.tobytes()
+        return b''
 
     if buff.len == 1:
         PyBuffer_Release(&buff)
-        return b'\x00' + data.tobytes()
+        return b'\x00' + data
 
     cdef unsigned char *input = <unsigned char *>buff.buf
     cdef Py_ssize_t input_size = buff.len
