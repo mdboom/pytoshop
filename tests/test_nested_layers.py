@@ -156,3 +156,55 @@ def test_no_images():
     with pytest.raises(ValueError):
         nested_layers.nested_layers_to_psd(
             layers, enums.ColorMode.grayscale)
+
+
+@pytest.mark.parametrize("compression", (0, 1, 2, 3))
+def test_proxy(compression):
+    from pytoshop.user.nested_layers import Group, Image
+
+    class ImageProxy:
+        @property
+        def shape(self):
+            return (1000, 1000)
+
+        @property
+        def dtype(self):
+            return np.uint8().dtype
+
+        def __array__(self):
+            return np.arange(1000000, dtype=np.uint8).reshape((1000, 1000))
+
+    image_layers = []
+    for i in range(256):
+        image_layers.append(
+            Image(
+                channels={0: ImageProxy()},
+                top=i, left=i
+            )
+        )
+
+    layers = [
+        Group(
+            layers=image_layers
+        )
+    ]
+
+    psd = nested_layers.nested_layers_to_psd(
+        layers, enums.ColorMode.grayscale,
+        compression=compression
+    )
+
+    buff = io.BytesIO()
+    psd.write(buff)
+
+    buff.seek(0)
+
+    psd = pytoshop.read(buff)
+    layers = nested_layers.psd_to_nested_layers(psd)
+    # Extract all the data so it's tested and included in the timings
+    for image in layers[0].layers:
+        [x.image for x in image.channels.values()]
+
+
+if __name__ == '__main__':
+    test_proxy(1)

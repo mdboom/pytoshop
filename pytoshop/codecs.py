@@ -141,28 +141,11 @@ def decompress_rle(data, shape, depth, version):
 
 {}
     """
-    if version == 2:
-        size = 4
-        dtype = '>u4'
-    else:
-        size = 2
-        dtype = '>u2'
-
-    # Read the offset table
-    offsets_length = size * shape[0]
-    offsets = np.frombuffer(data[:offsets_length], dtype=dtype)
-    stride = color_depth_size_map[depth] * shape[1]
-
-    # Unpack the data itself
-    i = offsets_length
-    result = []
-    for offset in offsets:
-        chunk = packbits.decode(data[i:i+offset], stride)
-        result.append(chunk)
-        i += offset
+    output = packbits.decode(
+        data, shape[0], shape[1], color_depth_size_map[depth], version)
 
     # Now pass along to the raw decoder to get a Numpy array
-    return decompress_raw(b''.join(result), shape, depth, version)
+    return decompress_raw(output, shape, depth, version)
 
 
 decompress_rle.__doc__ = decompress_rle.__doc__.format(_decompress_params)
@@ -267,8 +250,12 @@ def compress_raw(fd, image, depth, version):
     """
     image = normalize_image(image, depth)
     if len(image.shape) == 2:
-        for row in image:
-            fd.write(row)
+        if util.needs_byteswap(image):
+            for row in image:
+                row = util.do_byteswap(row)
+                fd.write(row)
+        else:
+            fd.write(image)
     else:
         fd.write(image)
 
@@ -294,10 +281,17 @@ def compress_rle(fd, image, depth, version):
         fd.seek(image.shape[0] * 4, 1)
         lengths = np.empty((len(image),), dtype='>u4')
 
-    for i, row in enumerate(image):
-        packed = packbits.encode(row)
-        lengths[i] = len(packed)
-        fd.write(packed)
+    if util.needs_byteswap(image):
+        for i, row in enumerate(image):
+            row = util.do_byteswap(row)
+            packed = packbits.encode(row)
+            lengths[i] = len(packed)
+            fd.write(packed)
+    else:
+        for i, row in enumerate(image):
+            packed = packbits.encode(row)
+            lengths[i] = len(packed)
+            fd.write(packed)
 
     end = fd.tell()
     fd.seek(start)
@@ -315,10 +309,14 @@ def compress_zip(fd, image, depth, version):
 {}
     """
     image = normalize_image(image, depth)
-    compressor = zlib.compressobj()
-    for row in image:
-        fd.write(compressor.compress(row))
-    fd.write(compressor.flush())
+    if util.needs_byteswap(image):
+        compressor = zlib.compressobj()
+        for row in image:
+            row = util.do_byteswap(row)
+            fd.write(compressor.compress(row))
+        fd.write(compressor.flush())
+    else:
+        fd.write(zlib.compress(image))
 
 
 compress_zip.__doc__ = compress_zip.__doc__.format(_compress_params)
@@ -346,7 +344,6 @@ def compress_zip_prediction(fd, image, depth, version):
 
     compressor = zlib.compressobj()
     for row in image:
-        row = util.ensure_native_endian(row)
         encoder(row.flatten())
         row = util.ensure_bigendian(row)
         fd.write(compressor.compress(row))
@@ -430,7 +427,7 @@ def compress_image(fd, image, compression, shape, num_channels, depth,
             raise ValueError("Image is the wrong shape")
 
         image = np.asarray(image)
-        image = util.ensure_bigendian(image)
+        image = util.ensure_native_endian(image)
         image = image.reshape((shape[0] * num_channels, shape[1]))
         return compressors[compression](fd, image, depth, version)
 
@@ -444,8 +441,7 @@ def _make_onebit_constant(value, width, rows):
 
 
 def _make_constant_row(value, width, depth):
-    return util.ensure_bigendian(
-        np.ones((width,), dtype=color_depth_dtype_map[depth]) * value)
+    return np.full((width,), value, dtype=color_depth_dtype_map[depth])
 
 
 def compress_constant_raw(fd, value, width, rows, depth, version):
@@ -484,11 +480,10 @@ def compress_constant_rle(fd, value, width, rows, depth, version):
     packed = packbits.encode(row.tobytes())
 
     if version == 1:
-        for i in range(rows):
-            util.write_value(fd, 'H', len(packed))
+        lengths = np.full((rows,), len(packed), dtype='>u2')
     else:
-        for i in range(rows):
-            util.write_value(fd, 'I', len(packed))
+        lengths = np.full((rows,), len(packed), dtype='>u4')
+    fd.write(lengths.tobytes())
 
     for i in range(rows):
         fd.write(packed)
@@ -511,10 +506,7 @@ def compress_constant_zip(fd, value, width, rows, depth, version):
     else:
         row = _make_constant_row(value, width, depth)
         row = row.tobytes()
-        compressor = zlib.compressobj()
-        for i in range(rows):
-            fd.write(compressor.compress(row))
-        fd.write(compressor.flush())
+        fd.write(zlib.compress(row * rows))
 
 
 compress_constant_zip.__doc__ = compress_constant_zip.__doc__.format(
@@ -546,10 +538,7 @@ def compress_constant_zip_prediction(
     encoder(row.flatten())
     row = util.ensure_bigendian(row)
     row = row.tobytes()
-    compressor = zlib.compressobj()
-    for i in range(rows):
-        fd.write(compressor.compress(row))
-    fd.write(compressor.flush())
+    fd.write(zlib.compress(row * rows))
 
 
 compress_constant_zip_prediction.__doc__ = \

@@ -282,23 +282,38 @@ def is_set_to_default(obj):
     return True
 
 
+def do_byteswap(arr):
+    """
+    Return a copy of an array, byteswapped.
+    """
+    return arr.byteswap().view(arr.dtype.newbyteorder('>'))
+
+
 def ensure_bigendian(arr):
     """
     Ensure that a Numpy array is in big-endian order.
 
     Returns a copy if the endianness needed to be changed.
     """
-    order = arr.dtype.byteorder
-    if order == '=':  # pragma: no cover
-        if sys.byteorder == 'little':
-            order = '<'
-        else:
-            order = '>'
-
-    if order != '>':
-        return arr.byteswap().view(arr.dtype.newbyteorder('>'))
-
+    if needs_byteswap(arr):
+        return do_byteswap(arr)
     return arr
+
+
+if sys.byteorder == 'little':
+    def needs_byteswap(arr):
+        """
+        Returns True if the array needs to by byteswapped.
+        """
+        order = arr.dtype.byteorder
+        return order in ('<', '=')
+else:
+    def needs_byteswap(arr):
+        """
+        Returns True if the array needs to by byteswapped.
+        """
+        order = arr.dtype.byteorder
+        return order == '<'
 
 
 def ensure_native_endian(arr):

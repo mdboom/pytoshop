@@ -1,6 +1,8 @@
 cimport cpython
 from cpython.buffer cimport (
     Py_buffer, PyObject_GetBuffer, PyBuffer_Release, PyBUF_C_CONTIGUOUS)
+from libc.stdint cimport uint16_t, uint32_t, uint64_t
+cimport cython
 
 
 def decode_prediction_8bit(data):
@@ -38,26 +40,15 @@ def encode_prediction_16bit(data):
         input[i] -= input[i-1]
 
 
-def decode(data, size_t width):
-    """
-    Decodes PackBit encoded data.
-    """
-    cdef int input_pos, output_pos
-    cdef int i
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void decode_row(unsigned char *input,
+                     size_t length,
+                     unsigned char *output):
     cdef char header_byte
-
-    cdef unsigned char *input
-    cdef Py_ssize_t input_size
-    cpython.PyBytes_AsStringAndSize(data, <char **>&input, &input_size)
-
-    output_obj = cpython.PyBytes_FromStringAndSize(NULL, width)
-    cdef unsigned char *output
-    cdef Py_ssize_t output_size
-    cpython.PyBytes_AsStringAndSize(output_obj, <char **>&output, &output_size)
-
-    input_pos = 0
-    output_pos = 0
-    while input_pos < input_size:
+    cdef size_t input_pos = 0
+    cdef size_t output_pos = 0
+    while input_pos < length:
         header_byte = <char>input[input_pos]
         input_pos += 1
 
@@ -72,9 +63,51 @@ def decode(data, size_t width):
                 output_pos += 1
             input_pos += 1
 
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.overflowcheck(False)
+def decode(data, size_t height, size_t width, size_t depth, int version):
+    """
+    Decodes PackBit encoded data.
+    """
+    cdef unsigned char *input
+    cdef Py_ssize_t input_size
+    cpython.PyBytes_AsStringAndSize(data, <char **>&input, &input_size)
+
+    output_obj = cpython.PyBytes_FromStringAndSize(NULL, height * width * depth)
+    cdef unsigned char *output
+    cdef Py_ssize_t output_size
+    cpython.PyBytes_AsStringAndSize(output_obj, <char **>&output, &output_size)
+
+    cdef uint16_t *lengths_u16 = <uint16_t *>input
+    cdef uint32_t *lengths_u32 = <uint32_t *>input
+    cdef uint64_t length
+    cdef size_t i
+
+    if version == 1:
+        input = &input[2 * height]
+        for i in range(height):
+            length = lengths_u16[i]
+            length = ((length & 0xff) << 8) | ((length & 0xff00) >> 8)
+            decode_row(input, length, &output[i * width * depth])
+            input = &input[length]
+    else:
+        input = &input[4 * height]
+        for i in range(height):
+            length = lengths_u32[i]
+            length = (((length & <uint64_t>0xff000000) >> 24) |
+                      ((length & <uint64_t>0xff00) << 8) |
+                      ((length & <uint64_t>0xff0000) >> 8) |
+                      ((length & <uint64_t>0xff) << 24))
+            decode_row(input, length, &output[i * width * depth])
+            input = &input[length]
+
     return output_obj
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef void finish_raw(unsigned char *buffer, int *buffer_pos,
                      unsigned char *output, int *output_pos):
     cdef int i
@@ -89,6 +122,8 @@ cdef void finish_raw(unsigned char *buffer, int *buffer_pos,
     buffer_pos[0] = 0
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef void finish_rle(unsigned char *input, int *input_pos,
                      unsigned char *output, int *output_pos,
                      int repeat_count):
@@ -98,6 +133,8 @@ cdef void finish_rle(unsigned char *input, int *input_pos,
     output_pos[0] += 1
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def encode(data):
     """
     Encodes PackBit encoded data.
