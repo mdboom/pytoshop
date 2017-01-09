@@ -2,13 +2,6 @@
 History
 =======
 
-0.3.1
------
-
-Bugfixes:
-
-- Fix a bug when writing a layer of width 1.
-
 0.3.0
 -----
 
@@ -18,6 +11,8 @@ Improvements:
 
 - Many of the image resources types are now handled directly, rather
   than through a generic bytes-only interface.
+
+- Major speedups in compression codecs.
 
 Bugfixes:
 
@@ -29,3 +24,5 @@ Bugfixes:
 - The "name source" on layers (when created from
   ``nested_layers_to_psd``) would point to the wrong source, but is
   now fixed.
+
+- Fix a bug when writing a layer of width 1.
