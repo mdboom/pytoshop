@@ -303,14 +303,14 @@ def ensure_bigendian(arr):
 if sys.byteorder == 'little':
     def needs_byteswap(arr):
         """
-        Returns True if the array needs to by byteswapped.
+        Returns True if the array needs to be byteswapped.
         """
         order = arr.dtype.byteorder
         return order in ('<', '=')
 else:
     def needs_byteswap(arr):
         """
-        Returns True if the array needs to by byteswapped.
+        Returns True if the array needs to be byteswapped.
         """
         order = arr.dtype.byteorder
         return order == '<'
