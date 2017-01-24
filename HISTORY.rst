@@ -2,6 +2,11 @@
 History
 =======
 
+Bugfixes:
+
+- Allow Numpy arrays of shape () in place of scalars for constant
+  images.
+
 0.3.0
 -----
 

@@ -403,7 +403,7 @@ def _update_sizes(layers):
             else:
                 width = None
             for index, channel in image.channels.items():
-                if np.isscalar(channel):
+                if np.isscalar(channel) or channel.shape == ():
                     continue
                 if height is None:
                     height = channel.shape[0]

@@ -412,7 +412,7 @@ def compress_image(fd, image, compression, shape, num_channels, depth,
     if dtype.itemsize != color_depth_size_map[depth]:
         raise ValueError("Image array values of wrong size")
 
-    if np.isscalar(image):
+    if np.isscalar(image) or image.shape == ():
         width = shape[1]
         rows = shape[0] * num_channels
         return constant_compressors[compression](
@@ -437,7 +437,7 @@ def _make_onebit_constant(value, width, rows):
         value == 255
     else:
         value = 0
-    return np.ones((width, rows), np.uint8) * value
+    return np.full((width, rows), value, np.uint8)
 
 
 def _make_constant_row(value, width, depth):
