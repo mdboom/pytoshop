@@ -576,7 +576,8 @@ class LayerRecord(t.HasTraits):
             mask=mask,
             blending_ranges=blending_ranges,
             name=name,
-            blocks=blocks)
+            blocks=blocks
+        )
 
         result._channel_data_lengths = channel_data_lengths
         result._channel_ids = channel_ids

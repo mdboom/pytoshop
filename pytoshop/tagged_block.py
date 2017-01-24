@@ -39,7 +39,7 @@ class _TaggedBlockMeta(type(t.HasTraits)):
 
 
 @six.add_metaclass(_TaggedBlockMeta)
-class TaggedBlock(t.HasTraits):
+class TaggedBlock:
     _large_layer_info_codes = set([
         b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
         b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',
@@ -121,14 +121,28 @@ class GenericTaggedBlock(TaggedBlock):
     doesn't know about.
     """
 
-    code = t.Bytes(
-        min=4, max=4,
-        help="The 4-letter tagged block code"
-    )
-    data = t.Bytes(
-        b'',
-        help="The raw data for the block"
-    )
+    def __init__(self, code=b'', data=b''):
+        self._code = code
+        self._data = data
+
+    @property
+    def code(self):
+        return self._code
+
+    @code.setter
+    def code(self, val):
+        if not isinstance(val, bytes) or len(val) != 4:
+            raise ValueError("Code be 4-length bytes")
+        self._code = val
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, val):
+        if not isinstance(val, bytes):
+            raise ValueError("Data must be bytes")
 
     @classmethod
     @util.trace_read
@@ -144,7 +158,7 @@ class GenericTaggedBlock(TaggedBlock):
         fd.write(self.data)
 
 
-class UnicodeLayerName(TaggedBlock):
+class UnicodeLayerName(TaggedBlock, t.HasTraits):
     code = b'luni'
     name = t.Unicode(
         help="The name of the layer."
@@ -165,7 +179,7 @@ class UnicodeLayerName(TaggedBlock):
         fd.write(util.encode_unicode_string(self.name))
 
 
-class LayerId(TaggedBlock):
+class LayerId(TaggedBlock, t.HasTraits):
     code = b'lyid'
     id = t.Int(
         help="Layer id"
@@ -185,7 +199,7 @@ class LayerId(TaggedBlock):
         util.write_value(fd, 'I', self.id)
 
 
-class LayerNameSource(TaggedBlock):
+class LayerNameSource(TaggedBlock, t.HasTraits):
     code = b'lnsr'
     id = t.Int(
         help="The layer id of the source of the name of this layer"
@@ -205,7 +219,7 @@ class LayerNameSource(TaggedBlock):
         util.write_value(fd, 'I', self.id)
 
 
-class _SectionDividerSetting(TaggedBlock):
+class _SectionDividerSetting(TaggedBlock, t.HasTraits):
     type = t.Enum(
         list(enums.SectionDividerSetting),
         default_value=enums.SectionDividerSetting.open,
@@ -268,7 +282,7 @@ class NestedSectionDividerSetting(_SectionDividerSetting):
     code = b'lsdk'
 
 
-class VectorMask(TaggedBlock):
+class VectorMask(TaggedBlock, t.HasTraits):
     code = b'vmsk'
     version = t.Int(
         3,

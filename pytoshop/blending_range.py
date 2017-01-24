@@ -12,6 +12,7 @@ from __future__ import unicode_literals, absolute_import
 import struct
 
 
+import numpy as np
 import traitlets as t
 
 
@@ -19,62 +20,104 @@ from . import docs
 from . import util
 
 
-class BlendingRange(t.HasTraits):
+class BlendingRange:
     """
     Blending range data.
 
     Comprises 2 black values and 2 white values.
     """
-    black0 = t.Int(min=0, max=255)
-    black1 = t.Int(min=0, max=255)
-    white0 = t.Int(min=0, max=255)
-    white1 = t.Int(min=0, max=255)
+    def __init__(self, black0=0, black1=0, white0=0, white1=0, _values=None):
+        if _values is not None:
+            self._values = _values
+        else:
+            self._values = np.array(
+                [black0, black1, white0, white1],
+                np.uint8)
+
+    @property
+    def black0(self):
+        return self._values[0]
+
+    @black0.setter
+    def black0(self, val):
+        self._values[0] = val
+
+    @property
+    def black1(self):
+        return self._values[1]
+
+    @black1.setter
+    def black1(self, val):
+        self._values[1] = val
+
+    @property
+    def white0(self):
+        return self._values[2]
+
+    @white0.setter
+    def white0(self, val):
+        self._values[2] = val
+
+    @property
+    def white1(self):
+        return self._values[3]
+
+    @white1.setter
+    def white1(self, val):
+        self._values[3] = val
 
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
-        black0, black1, white0, white1 = struct.unpack('>BBBB', fd.read(4))
+        buf = fd.read(4)
+        values = np.frombuffer(buf, np.uint8)
 
         util.log(
-            "black: ({}, {}), white: ({}, {})",
-            black0, black1, white0, white1)
+            "values: {}",
+            values)
 
-        return cls(
-            black0=black0,
-            black1=black1,
-            white0=white0,
-            white1=white1)
+        return cls(_values=values)
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
     def write(self, fd, header):
-        fd.write(struct.pack(
-            '>BBBB', self.black0, self.black1, self.white0, self.white1))
+        fd.write(self._values.tobytes())
     write.__doc__ = docs.write
 
 
-class BlendingRangePair(t.HasTraits):
+class BlendingRangePair:
     """
     Blending range pair.
 
     The combination of a source and destination blending range.
     """
-    src = t.Instance(
-        BlendingRange,
-        help="Source `BlendingRange`"
-    )
-    dst = t.Instance(
-        BlendingRange,
-        help="Destination `BlendingRange`"
-    )
+    def __init__(self, src=None, dst=None):
+        if src is None:
+            src = BlendingRange()
+        if dst is None:
+            dst = BlendingRange()
+        self._src = src
+        self._dst = dst
 
-    @t.default('src')
-    def _default_src(self):
-        return BlendingRange()
+    @property
+    def src(self):
+        return self._src
 
-    @t.default('dst')
-    def _default_dst(self):
-        return BlendingRange()
+    @src.setter
+    def src(self, val):
+        if not isinstance(val, BlendingRange):
+            raise TypeError("src must be BlendingRange instance")
+        self._src = val
+
+    @property
+    def dst(self):
+        return self._dst
+
+    @dst.setter
+    def dst(self, val):
+        if not isinstance(val, BlendingRange):
+            raise TypeError("dst must be BlendingRange instance")
+        self._dst = val
 
     def length(self, header):
         return 8
@@ -90,8 +133,7 @@ class BlendingRangePair(t.HasTraits):
         src = BlendingRange.read(fd, header)
         dst = BlendingRange.read(fd, header)
 
-        return cls(src=src,
-                   dst=dst)
+        return cls(src=src, dst=dst)
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
