@@ -9,9 +9,6 @@ Manage blending ranges.
 from __future__ import unicode_literals, absolute_import
 
 
-import struct
-
-
 import numpy as np
 import traitlets as t
 
