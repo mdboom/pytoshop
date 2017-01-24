@@ -256,7 +256,10 @@ def trace_read(func):
         log('<<< {} @ {}', name, fd.tell())
         return result
 
-    return wrapper
+    if DEBUG:
+        return wrapper
+    else:
+        return func
 
 
 trace_write = trace_read
