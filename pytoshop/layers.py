@@ -127,8 +127,10 @@ class LayerMask(t.HasTraits):
         """
         return (self.real_height, self.real_width)
 
-    def length(self, header):
-        if util.is_set_to_default(self):
+    def length(self, header, is_set_to_default=None):
+        if is_set_to_default is None:
+            is_set_to_default = util.is_set_to_default(self)
+        if is_set_to_default:
             return 0
         length = 16 + 1 + 1
         mask_flags = self._get_mask_flags()
@@ -245,8 +247,10 @@ class LayerMask(t.HasTraits):
             else:
                 util.write_value(fd, 'B', 0)
 
-        util.write_value(fd, 'I', self.length(header))
-        if util.is_set_to_default(self):
+        is_set_to_default = util.is_set_to_default(self)
+
+        util.write_value(fd, 'I', self.length(header, is_set_to_default))
+        if is_set_to_default:
             return
 
         write_rectangle(self.top, self.left, self.bottom, self.right)
