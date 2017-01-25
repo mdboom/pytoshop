@@ -5,6 +5,9 @@ from libc.stdint cimport uint16_t, uint32_t, uint64_t
 cimport cython
 
 
+import sys
+
+
 def decode_prediction_8bit(data):
     cdef unsigned char [:] input = data
     cdef int i
@@ -71,6 +74,8 @@ def decode(data, size_t height, size_t width, size_t depth, int version):
     """
     Decodes PackBit encoded data.
     """
+    cdef int need_swap = (sys.byteorder == 'little')
+
     cdef unsigned char *input
     cdef Py_ssize_t input_size
     cpython.PyBytes_AsStringAndSize(data, <char **>&input, &input_size)
@@ -89,17 +94,19 @@ def decode(data, size_t height, size_t width, size_t depth, int version):
         input = &input[2 * height]
         for i in range(height):
             length = lengths_u16[i]
-            length = ((length & 0xff) << 8) | ((length & 0xff00) >> 8)
+            if need_swap:
+                length = ((length & 0xff) << 8) | ((length & 0xff00) >> 8)
             decode_row(input, length, &output[i * width * depth])
             input = &input[length]
     else:
         input = &input[4 * height]
         for i in range(height):
             length = lengths_u32[i]
-            length = (((length & <uint64_t>0xff000000) >> 24) |
-                      ((length & <uint64_t>0xff00) << 8) |
-                      ((length & <uint64_t>0xff0000) >> 8) |
-                      ((length & <uint64_t>0xff) << 24))
+            if need_swap:
+                length = (((length & <uint64_t>0xff000000) >> 24) |
+                          ((length & <uint64_t>0xff00) << 8) |
+                          ((length & <uint64_t>0xff0000) >> 8) |
+                          ((length & <uint64_t>0xff) << 24))
             decode_row(input, length, &output[i * width * depth])
             input = &input[length]
 
