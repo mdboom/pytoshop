@@ -55,7 +55,7 @@ cdef void decode_row(unsigned char *input,
         header_byte = <char>input[input_pos]
         input_pos += 1
 
-        if 0 <= header_byte <= 127:
+        if 0 <= header_byte:
             for i in range(header_byte + 1):
                 output[output_pos] = input[input_pos]
                 output_pos += 1
