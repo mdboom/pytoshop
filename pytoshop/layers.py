@@ -79,7 +79,7 @@ class LayerMask(t.HasTraits):
         help="Vector mask feather"
     )
     real_flags = t.Int()
-    real_background_color = t.Bool()
+    real_user_mask_background = t.Bool()
     real_top = t.Int()
     real_left = t.Int()
     real_bottom = t.Int()
@@ -280,7 +280,7 @@ class LayerMask(t.HasTraits):
                 util.write_value(fd, 'd', self.vector_mask_feather)
 
         util.write_value(fd, 'B', self.real_flags)
-        write_default_color(self.real_background_color)
+        write_default_color(self.real_user_mask_background)
         write_rectangle(self.real_top, self.real_left,
                         self.real_bottom, self.real_right)
     write.__doc__ = docs.write
@@ -566,7 +566,6 @@ class LayerRecord(t.HasTraits):
         fd.seek(end)
 
         result = cls(
-            header,
             top=top,
             left=left,
             bottom=bottom,
