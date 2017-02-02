@@ -10,6 +10,7 @@ from __future__ import unicode_literals, absolute_import
 
 
 import collections
+import os
 import struct
 
 
@@ -161,7 +162,7 @@ class LayerMask(t.HasTraits):
 
     @classmethod
     @util.trace_read
-    def read(cls, fd, header):
+    def read(cls, fd):
         length = util.read_value(fd, 'I')
         d = {}
         end = fd.tell() + length
@@ -422,14 +423,6 @@ class LayerRecord(t.HasTraits):
         False,
         help="Pixel data is irrelevant to appearance of document"
     )
-    mask = t.Instance(
-        LayerMask,
-        help="`LayerMask`"
-    )
-    blending_ranges = t.Instance(
-        blending_range.BlendingRanges,
-        help='`blending_range.BlendingRanges`'
-    )
     name = t.Unicode(
         min=0, max=255, default_value='',
         help="Name of layer"
@@ -442,14 +435,6 @@ class LayerRecord(t.HasTraits):
         help="List of `tagged_block.TaggedBlock` items with additional "
              "information about this layer."
     )
-
-    @t.default('mask')
-    def _default_mask(self):
-        return LayerMask()
-
-    @t.default('blending_ranges')
-    def _default_blending_ranges(self):
-        return blending_range.BlendingRanges()
 
     @t.validate('channels')
     def _validate_channels(self, proposal):
@@ -469,6 +454,54 @@ class LayerRecord(t.HasTraits):
             sorted([(k, v) for (k, v) in value.items()]))
 
         return value
+
+    @property
+    def mask(self):
+        if hasattr(self, '_mask'):
+            return self._mask
+        else:
+            if hasattr(self, '_mask_offset'):
+                start = self._fd.tell()
+                try:
+                    self._fd.seek(self._mask_offset)
+                    self._mask = LayerMask.read(self._fd)
+                finally:
+                    self._fd.seek(start)
+                del self._mask_offset
+                return self._mask
+            else:
+                self._mask = LayerMask()
+                return self._mask
+
+    @mask.setter
+    def mask(self, mask):
+        if not isinstance(mask, LayerMask):
+            raise TypeError("Must be a LayerMask instance")
+        self._mask = mask
+
+    @property
+    def blending_ranges(self):
+        if hasattr(self, '_blending_ranges'):
+            return self._blending_ranges
+        else:
+            if hasattr(self, '_blending_ranges_offset'):
+                start = self._fd.tell()
+                try:
+                    self._fd.seek(self._blending_ranges_offset)
+                    self._blending_ranges = blending_range.BlendingRanges.read(
+                        self._fd, len(self.channels))
+                finally:
+                    self._fd.seek(start)
+                return self._blending_ranges
+            else:
+                self._blending_ranges = blending_range.BlendingRanges()
+                return self._blending_ranges
+
+    @blending_ranges.setter
+    def blending_ranges(self, blending_ranges):
+        if not isinstance(blending_ranges, blending_range.BlendingRanges):
+            raise TypeError("Must be a BlendingRanges instance")
+        self._blending_ranges = blending_ranges
 
     @property
     def width(self):
@@ -552,9 +585,14 @@ class LayerRecord(t.HasTraits):
 
         util.log("extra_length: {}, end: {}", extra_length, end)
 
-        mask = LayerMask.read(fd, header)
-        blending_ranges = blending_range.BlendingRanges.read(
-            fd, header, num_channels)
+        mask_offset = fd.tell()
+        mask_length = util.read_value(fd, 'I')
+        fd.seek(mask_length, os.SEEK_CUR)
+
+        blending_ranges_offset = fd.tell()
+        blending_ranges_length = util.read_value(fd, 'I')
+        fd.seek(blending_ranges_length, os.SEEK_CUR)
+
         name = util.read_pascal_string(fd, 4)
 
         util.log("name: '{}'", name)
@@ -576,14 +614,15 @@ class LayerRecord(t.HasTraits):
             transparency_protected=transparency_protected,
             visible=visible,
             pixel_data_irrelevant=pixel_data_irrelevant,
-            mask=mask,
-            blending_ranges=blending_ranges,
             name=name,
             blocks=blocks
         )
 
         result._channel_data_lengths = channel_data_lengths
         result._channel_ids = channel_ids
+        result._mask_offset = mask_offset
+        result._blending_ranges_offset = blending_ranges_offset
+        result._fd = fd
         return result
     read.__func__.__doc__ = docs.read
 

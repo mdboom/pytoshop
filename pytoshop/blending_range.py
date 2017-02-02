@@ -65,7 +65,7 @@ class BlendingRange:
 
     @classmethod
     @util.trace_read
-    def read(cls, fd, header):
+    def read(cls, fd):
         buf = fd.read(4)
         values = np.frombuffer(buf, np.uint8)
 
@@ -126,9 +126,9 @@ class BlendingRangePair:
 
     @classmethod
     @util.trace_read
-    def read(cls, fd, header):
-        src = BlendingRange.read(fd, header)
-        dst = BlendingRange.read(fd, header)
+    def read(cls, fd):
+        src = BlendingRange.read(fd)
+        dst = BlendingRange.read(fd)
 
         return cls(src=src, dst=dst)
     read.__func__.__doc__ = docs.read
@@ -175,17 +175,17 @@ class BlendingRanges(t.HasTraits):
 
     @classmethod
     @util.trace_read
-    def read(cls, fd, header, num_channels):
+    def read(cls, fd, num_channels):
         length = util.read_value(fd, 'I')
         end = fd.tell() + length
         util.log("length: {}, end: {}", length, end)
         if length == 0:
             return cls()
 
-        composite_gray_blend = BlendingRangePair.read(fd, header)
+        composite_gray_blend = BlendingRangePair.read(fd)
         channels = []
         while fd.tell() < end:
-            channels.append(BlendingRangePair.read(fd, header))
+            channels.append(BlendingRangePair.read(fd))
 
         fd.seek(end)
 
