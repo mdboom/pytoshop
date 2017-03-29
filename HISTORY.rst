@@ -2,6 +2,10 @@
 History
 =======
 
+Improvements:
+
+- For speed purposes, pytoshop no longer uses traitlets.
+
 Bugfixes:
 
 - Allow Numpy arrays of shape () in place of scalars for constant

@@ -6,7 +6,6 @@ dependencies:
 - pytest-cov
 - python=3.5.2=0
 - sphinx=1.4.6=py35_0
-- traitlets=4.3.0=py35_0
 - coverage
 - flake8
 - six

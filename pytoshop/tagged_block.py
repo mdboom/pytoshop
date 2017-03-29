@@ -12,28 +12,26 @@ from __future__ import unicode_literals, absolute_import
 import six
 
 
-import traitlets as t
-
-
 from . import docs
 from . import enums
 from . import path
 from . import util
 
 
-class _TaggedBlockMeta(type(t.HasTraits)):
+class _TaggedBlockMeta(type):
     """
     A metaclass that builds a mapping of subclasses.
     """
     mapping = {}
 
     def __new__(cls, name, parents, dct):
-        new_cls = type(t.HasTraits).__new__(cls, name, parents, dct)
+        new_cls = type.__new__(cls, name, parents, dct)
 
-        if 'code' in dct and isinstance(dct['code'], bytes):
-            if dct['code'] in cls.mapping:
-                raise ValueError("Duplicate code '{}'".format(dct['code']))
-            cls.mapping[dct['code']] = new_cls
+        if '_code' in dct and isinstance(dct['_code'], bytes):
+            code = dct['_code']
+            if code in cls.mapping:
+                raise ValueError("Duplicate code '{}'".format(code))
+            cls.mapping[code] = new_cls
 
         return new_cls
 
@@ -44,6 +42,10 @@ class TaggedBlock:
         b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
         b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',
         b'PxSD'])
+
+    @property
+    def code(self):
+        return self._code
 
     def length(self, header):
         return self.data_length(header)
@@ -158,11 +160,26 @@ class GenericTaggedBlock(TaggedBlock):
         fd.write(self.data)
 
 
-class UnicodeLayerName(TaggedBlock, t.HasTraits):
-    code = b'luni'
-    name = t.Unicode(
-        help="The name of the layer."
-    )
+class UnicodeLayerName(TaggedBlock):
+    def __init__(self, name=''):
+        self.name = name
+
+    _code = b'luni'
+
+    @property
+    def name(self):
+        "The name of the layer."
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        if isinstance(value, bytes):
+            value = value.decode('ascii')
+
+        if (not isinstance(value, six.text_type) or
+                len(value) > 255):
+            raise ValueError("name must be unicode string of length < 255")
+        self._name = value
 
     @classmethod
     @util.trace_read
@@ -179,11 +196,23 @@ class UnicodeLayerName(TaggedBlock, t.HasTraits):
         fd.write(util.encode_unicode_string(self.name))
 
 
-class LayerId(TaggedBlock, t.HasTraits):
-    code = b'lyid'
-    id = t.Int(
-        help="Layer id"
-    )
+class LayerId(TaggedBlock):
+    def __init__(self, id=0):
+        self.id = id
+
+    _code = b'lyid'
+
+    @property
+    def id(self):
+        "Layer id"
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        if (not isinstance(value, int) or
+                value < 0 or value > (1 << 32)):
+            raise ValueError("id must be a 32-bit integer")
+        self._id = value
 
     @classmethod
     @util.trace_read
@@ -199,11 +228,23 @@ class LayerId(TaggedBlock, t.HasTraits):
         util.write_value(fd, 'I', self.id)
 
 
-class LayerNameSource(TaggedBlock, t.HasTraits):
-    code = b'lnsr'
-    id = t.Int(
-        help="The layer id of the source of the name of this layer"
-    )
+class LayerNameSource(TaggedBlock):
+    def __init__(self, id=0):
+        self.id = id
+
+    _code = b'lnsr'
+
+    @property
+    def id(self):
+        "The layer id of the source of the name of this layer"
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        if (not isinstance(value, int) or
+                value < 0 or value > (1 << 32)):
+            raise ValueError("id must be a 32-bit integer")
+        self._id = value
 
     @classmethod
     @util.trace_read
@@ -219,21 +260,51 @@ class LayerNameSource(TaggedBlock, t.HasTraits):
         util.write_value(fd, 'I', self.id)
 
 
-class _SectionDividerSetting(TaggedBlock, t.HasTraits):
-    type = t.Enum(
-        list(enums.SectionDividerSetting),
-        default_value=enums.SectionDividerSetting.open,
-        help="Section divider type. See `enums.SectionDividerSetting`."
-    )
-    key = t.Enum(
-        list(enums.BlendMode), allow_none=True,
-        help="Section divider key"
-    )
-    subtype = t.Bool(
-        None, allow_none=True,
-        help="Section divider subtype. False=normal, True=Scene group, "
-        "affects the animation timeline"
-    )
+class _SectionDividerSetting(TaggedBlock):
+    def __init__(self,
+                 type=enums.SectionDividerSetting.open,
+                 key=None,
+                 subtype=None):
+        self.type = type
+        self.key = key
+        self.subtype = subtype
+
+    @property
+    def type(self):
+        "Section divider type. See `enums.SectionDividerSetting`."
+        return self._type
+
+    @type.setter
+    def type(self, value):
+        if value not in list(enums.SectionDividerSetting):
+            raise ValueError("Invalid section divider setting")
+        self._type = value
+
+    @property
+    def key(self):
+        "Section divider key"
+        return self._key
+
+    @key.setter
+    def key(self, value):
+        if value is not None and value not in list(enums.BlendMode):
+            raise ValueError("Invalid blend mode")
+        self._key = value
+
+    @property
+    def subtype(self):
+        """
+        Section divider subtype. False=normal, True=Scene group,
+        affects the animation timeline.
+        """
+        return self._subtype
+
+    @subtype.setter
+    def subtype(self, value):
+        if value is None:
+            self._subtype = value
+        else:
+            self._subtype = bool(value)
 
     @classmethod
     @util.trace_read
@@ -275,32 +346,76 @@ class _SectionDividerSetting(TaggedBlock, t.HasTraits):
 
 
 class SectionDividerSetting(_SectionDividerSetting):
-    code = b'lsct'
+    _code = b'lsct'
 
 
 class NestedSectionDividerSetting(_SectionDividerSetting):
-    code = b'lsdk'
+    _code = b'lsdk'
 
 
-class VectorMask(TaggedBlock, t.HasTraits):
-    code = b'vmsk'
-    version = t.Int(
-        3,
-        help='Vector mask block version'
-    )
-    invert = t.Bool(
-        help='Invert mask'
-    )
-    not_link = t.Bool(
-        help="Don't link mask"
-    )
-    disable = t.Bool(
-        help="Disable mask"
-    )
-    path_resource = t.Instance(
-        path.PathResource,
-        help="`path.PathResource` instance`"
-    )
+class VectorMask(TaggedBlock):
+    def __init__(self,
+                 version=3,
+                 invert=False,
+                 not_link=False,
+                 disable=False,
+                 path_resource=None):
+        self.version = version
+        self.invert = invert
+        self.not_link = not_link
+        self.disable = disable
+        self.path_resource = path_resource
+
+    _code = b'vmsk'
+
+    @property
+    def version(self):
+        'Vector mask block version'
+        return self._version
+
+    @version.setter
+    def version(self, value):
+        if not isinstance(value, int):
+            raise TypeError("version must be an int")
+        self._version = value
+
+    @property
+    def invert(self):
+        "Invert mask"
+        return self._invert
+
+    @invert.setter
+    def invert(self, value):
+        self._invert = bool(value)
+
+    @property
+    def not_link(self):
+        "Don't link mask"
+        return self._not_link
+
+    @not_link.setter
+    def not_link(self, value):
+        self._not_link = bool(value)
+
+    @property
+    def disable(self):
+        "Disable mask"
+        return self._disable
+
+    @disable.setter
+    def disable(self, value):
+        self._disable = bool(value)
+
+    @property
+    def path_resource(self):
+        "`path.PathResource` instance`"
+        return self._path_resource
+
+    @path_resource.setter
+    def path_resource(self, value):
+        if not isinstance(value, path.PathResource):
+            raise TypeError("path_resource must by a PathResource instance.")
+        self._path_resource = value
 
     @classmethod
     @util.trace_read

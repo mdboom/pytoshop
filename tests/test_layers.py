@@ -7,7 +7,6 @@ import os
 
 import numpy as np
 import pytest
-import traitlets as t
 
 
 import pytoshop
@@ -54,11 +53,11 @@ def test_futz_with_layer_channels():
             0: layers.ChannelImageData(image=np.empty((200, 100), np.uint8))}
         psd.write(io.BytesIO())
 
-        with pytest.raises(t.TraitError):
+        with pytest.raises(ValueError):
             first_layer.channels = {
                 0: np.empty((200, 100), np.uint8)}
 
-        with pytest.raises(t.TraitError):
+        with pytest.raises(ValueError):
             first_layer.channels = {
                 'zero': layers.ChannelImageData(
                     image=np.empty((200, 100), np.uint8))}

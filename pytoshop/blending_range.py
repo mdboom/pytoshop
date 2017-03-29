@@ -10,7 +10,6 @@ from __future__ import unicode_literals, absolute_import
 
 
 import numpy as np
-import traitlets as t
 
 
 from . import docs
@@ -140,21 +139,43 @@ class BlendingRangePair:
     write.__doc__ = docs.write
 
 
-class BlendingRanges(t.HasTraits):
+class BlendingRanges:
     """
     All of the layer blending range data.
 
     Consists of a composite gray blend pair followed by N additional
     pairs.
     """
-    composite_gray_blend = t.Instance(
-        BlendingRangePair, allow_none=True,
-        help="Composite gray `BlendingRangePair`."
-    )
-    channels = t.List(
-        t.Instance(BlendingRangePair),
-        help="List of additional `BlendingRangePair` instances."
-    )
+    def __init__(self, composite_gray_blend=None, channels=None):
+        self.composite_gray_blend = composite_gray_blend
+        if channels is None:
+            channels = []
+        self.channels = channels
+
+    @property
+    def composite_gray_blend(self):
+        """Composite gray `BlendingRangePair`."""
+        return self._composite_gray_blend
+
+    @composite_gray_blend.setter
+    def composite_gray_blend(self, value):
+        if (value is not None and
+                not isinstance(value, BlendingRangePair)):
+            raise TypeError(
+                "composite_gray_blend must be None or BlendingRangePair "
+                "instance."
+            )
+        self._composite_gray_blend = value
+
+    @property
+    def channels(self):
+        """List of additional `BlendingRangePair` instances."""
+        return self._channels
+
+    @channels.setter
+    def channels(self, value):
+        util.assert_is_list_of(value, BlendingRangePair)
+        self._channels = value
 
     def length(self, header):
         if (self.composite_gray_blend is not None or

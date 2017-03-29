@@ -9,14 +9,11 @@ The `ColorModeData` section.
 from __future__ import unicode_literals, absolute_import
 
 
-import traitlets as t
-
-
 from . import docs
 from . import util
 
 
-class ColorModeData(t.HasTraits):
+class ColorModeData:
     """
     Color mode data section.
 
@@ -35,9 +32,18 @@ class ColorModeData(t.HasTraits):
     Note that ``pytoshop`` doesn't do anything meaningful for color
     mode data, and only stores the raw bytes in order to round-trip.
     """
-    data = t.Bytes(
-        help='The raw color mode data.'
-    )
+    def __init__(self, data=b''):
+        self.data = data
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        if not isinstance(value, bytes):
+            raise TypeError('data must be a bytes instance')
+        self._data = value
 
     def length(self, header):
         return len(self.data)

@@ -12,28 +12,19 @@ from __future__ import unicode_literals, absolute_import
 import struct
 
 
-import traitlets as t
-
-
 from . import codecs
 from . import enums
 from . import util
 
 
-class ImageData(t.HasTraits):
+class ImageData:
     """
     Stores (non-layer) image data.
     """
-    compression = t.Enum(
-        list(enums.Compression),
-        default_value=enums.Compression.rle,
-        help="Compression method. See `enums.Compression`"
-    )
-
     def __init__(self, channels=None, fd=None, offset=None, size=None,
                  height=None, width=None, num_channels=None, depth=None,
                  version=None, compression=enums.Compression.raw):
-        t.HasTraits.__init__(self, compression=compression)
+        self.compression = compression
         if channels is not None:
             if (fd is not None or offset is not None or size is not None or
                     height is not None or width is not None or
@@ -60,6 +51,17 @@ class ImageData(t.HasTraits):
         else:
             self._channels = None
             self._fd = None
+
+    @property
+    def compression(self):
+        "Type of compression. See `enums.Compression`."
+        return self._compression
+
+    @compression.setter
+    def compression(self, value):
+        if value not in list(enums.Compression):
+            raise ValueError("invalid compression type")
+        self._compression = value
 
     def _validate_channels(self, channels):
         if channels is None:

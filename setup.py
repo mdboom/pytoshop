@@ -14,7 +14,6 @@ with open('HISTORY.rst') as history_file:
 requirements = [
     'cython',
     'numpy',
-    'traitlets'
 ]
 
 test_requirements = [

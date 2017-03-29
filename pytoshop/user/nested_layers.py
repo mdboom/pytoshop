@@ -11,7 +11,7 @@ import sys
 
 
 import numpy as np
-import traitlets as t
+import six
 
 
 from .. import core
@@ -20,102 +20,218 @@ from .. import image_resources
 from .. import layers as l
 from .. import path
 from .. import tagged_block
+from .. import util
 
 
-class Layer(t.HasTraits):
+class Layer:
     """
     Base class of all layers.
     """
-    name = t.Unicode(
-        help="The name of the layer"
-    )
-    visible = t.Bool(
-        True,
-        help="Is layer visible?"
-    )
-    opacity = t.Int(
-        255, min=0, max=255,
-        help="Opacity. 0=transparent, 255=opaque"
-    )
-    group_id = t.Int(
-        0, min=0, max=((1 << 16) - 1),
-        help="Linked layer id"
-    )
+    @property
+    def name(self):
+        "The name of the layer"
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        if not isinstance(value, six.text_type):
+            raise TypeError("name must be a Unicode string")
+        self._name = value
+
+    @property
+    def visible(self):
+        "Is layer visible?"
+        return self._visible
+
+    @visible.setter
+    def visible(self, value):
+        self._visible = bool(value)
+
+    @property
+    def opacity(self):
+        "Opacity. 0=transparent, 255=opaque"
+        return self._opacity
+
+    @opacity.setter
+    def opacity(self, value):
+        if (not isinstance(value, int) or
+                value < 0 or value > 255):
+            raise ValueError(
+                "opacity must be an integer in the range 0 to 255"
+            )
+        self._opacity = value
+
+    @property
+    def group_id(self):
+        "Linked layer id"
+        return self._group_id
+
+    @group_id.setter
+    def group_id(self, value):
+        if (not isinstance(value, int) or
+                value < 0 or value > ((1 << 16) - 1)):
+            raise ValueError(
+                "group_id must be a 16-bit unsigned int"
+            )
+        self._group_id = value
+
+    @property
+    def blend_mode(self):
+        "blend mode"
+        return self._blend_mode
+
+    @blend_mode.setter
+    def blend_mode(self, value):
+        if value not in list(enums.BlendMode):
+            raise ValueError("Invalid blend mode")
+        self._blend_mode = value
 
 
 class Group(Layer):
     """
     A `Layer` that may contain other `Layer` instances.
     """
-    blend_mode = t.Enum(
-        list(enums.BlendMode),
-        default_value=enums.BlendMode.pass_through,
-        help="blend mode"
-    )
-    layers = t.List(
-        t.Instance(Layer),
-        help="List of sublayers"
-    )
-    closed = t.Bool(
-        True,
-        help="Is layer closed in GUI?"
-    )
+    def __init__(self,
+                 name='',
+                 visible=True,
+                 opacity=255,
+                 group_id=0,
+                 blend_mode=enums.BlendMode.pass_through,
+                 layers=None,
+                 closed=True):
+        self.name = name
+        self.visible = visible
+        self.opacity = opacity
+        self.group_id = group_id
+        self.blend_mode = blend_mode
+        if layers is None:
+            layers = []
+        self.layers = layers
+        self.closed = closed
+
+    @property
+    def layers(self):
+        "List of sublayers"
+        return self._layers
+
+    @layers.setter
+    def layers(self, value):
+        util.assert_is_list_of(value, Layer)
+        self._layers = value
+
+    @property
+    def closed(self):
+        "Is layer closed in GUI?"
+        return self._closed
+
+    @closed.setter
+    def closed(self, value):
+        self._closed = bool(value)
 
 
 class Image(Layer):
     """
     A `Layer` containing image data, i.e. a leaf node.
     """
-    blend_mode = t.Enum(
-        list(enums.BlendMode),
-        default_value=enums.BlendMode.normal,
-        help="blend mode"
-    )
-    top = t.Int(
-        0,
-        help="The top of the layer, in pixels."
-    )
-    left = t.Int(
-        0,
-        help="The left of the layer, in pixels."
-    )
-    bottom = t.Int(
-        None, allow_none=True,
-        help="The bottom of the layer, in pixels. If not provided, "
-             "will be automatically determined from channel data."
-    )
-    right = t.Int(
-        None, allow_none=True,
-        help="The right of the layer, in pixels. If not provided, "
-             "will be automatically determined from channel data."
-    )
-    channels = t.TraitType(
-        help="""
+    def __init__(self,
+                 name='',
+                 visible=True,
+                 opacity=255,
+                 group_id=0,
+                 blend_mode=enums.BlendMode.normal,
+                 top=0, left=0, bottom=None, right=None,
+                 channels={}):
+        self.name = name
+        self.visible = visible
+        self.opacity = opacity
+        self.group_id = group_id
+        self.blend_mode = blend_mode
+        self.top = top
+        self.left = left
+        self.bottom = bottom
+        self.right = right
+        self.channels = channels
+
+    @property
+    def top(self):
+        "The top of the layer, in pixels."
+        return self._top
+
+    @top.setter
+    def top(self, value):
+        if not isinstance(value, int):
+            raise TypeError("top must be an int")
+        self._top = value
+
+    @property
+    def left(self):
+        "The left of the layer, in pixels."
+        return self._left
+
+    @left.setter
+    def left(self, value):
+        if not isinstance(value, int):
+            raise TypeError("left must be an int")
+        self._left = value
+
+    @property
+    def bottom(self):
+        """
+        The bottom of the layer, in pixels. If not provided, will be
+        automatically determined from channel data.
+        """
+        return self._bottom
+
+    @bottom.setter
+    def bottom(self, value):
+        if value is not None and not isinstance(value, int):
+            raise TypeError("bottom must be an int or None")
+        self._bottom = value
+
+    @property
+    def right(self):
+        """
+        The right of the layer, in pixels. If not provided, will be
+        automatically determined from channel data.
+        """
+        return self._right
+
+    @right.setter
+    def right(self, value):
+        if value is not None and not isinstance(value, int):
+            raise TypeError("right must be an int or None")
+        self._right = value
+
+    @property
+    def channels(self):
+        """
         The channel image data. May be one of the following:
         - A dictionary from `enums.ChannelId` to 2-D numpy arrays.
         - A 3-D numpy array of the shape (num_channels, height, width)
         - A list of numpy arrays where each is a channel.
         """
-    )
+        return self._channels
 
-    @t.validate('channels')
-    def _validate_channels(self, proposal):
-        value = proposal['value']
-        if isinstance(value, dict):
-            for key in value.keys():
-                enums.ChannelId(key)
-            return value
+    @channels.setter
+    def channels(self, value):
+        def coerce(value):
+            if isinstance(value, dict):
+                for key in value.keys():
+                    enums.ChannelId(key)
+                return value
 
-        if isinstance(value, np.ndarray):
-            if len(value.shape) == 3:
+            if isinstance(value, np.ndarray):
+                if len(value.shape) == 3:
+                    return dict((i, plane) for (i, plane) in enumerate(value))
+                else:
+                    return {0: value}
+
+            if isinstance(value, list):
                 return dict((i, plane) for (i, plane) in enumerate(value))
-            else:
-                return {0: value}
 
-        if isinstance(value, list):
-            return dict((i, plane) for (i, plane) in enumerate(value))
+            return {0: value}
 
-        return {0: value}
+        self._channels = coerce(value)
 
 
 def _iterate_all_images(layers):

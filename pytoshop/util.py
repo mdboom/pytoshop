@@ -273,18 +273,6 @@ def log(msg, *args):  # pragma: no cover
         print("  " * _indent[0], msg.format(*args))
 
 
-def is_set_to_default(obj):
-    """
-    Returns ``True`` if a ``traitlets.HasTraits`` instance is set
-    entirely to its defaults.
-    """
-    traits = obj.traits()
-    for key, val in traits.items():
-        if getattr(obj, key) != val.default_value:
-            return False
-    return True
-
-
 def do_byteswap(arr):
     """
     Return a copy of an array, byteswapped.
@@ -349,3 +337,19 @@ def pack_bitflags(*values):
         if val:
             result |= (1 << i)
     return result
+
+
+def assert_is_list_of(value, cls, min=None, max=None):
+    """
+    If value is not a list of cls instances, raises TypeError.
+    """
+    if not isinstance(value, list):
+        raise TypeError("Must be list of {}".format(cls.__name__))
+    for item in value:
+        if not isinstance(item, cls):
+            raise TypeError("Must be list of {}".format(cls.__name__))
+        if ((min is not None and item < min) or
+                (max is not None and item > max)):
+            raise ValueError(
+                "All values must be in range {} to {}".format(min, max)
+            )
