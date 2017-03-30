@@ -23,7 +23,7 @@ from .. import tagged_block
 from .. import util
 
 
-class Layer:
+class Layer(object):
     """
     Base class of all layers.
     """
@@ -34,6 +34,9 @@ class Layer:
 
     @name.setter
     def name(self, value):
+        if isinstance(value, bytes):
+            value = value.decode('ascii')
+
         if not isinstance(value, six.text_type):
             raise TypeError("name must be a Unicode string")
         self._name = value

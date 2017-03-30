@@ -49,7 +49,7 @@ class _ImageResourceBlockMeta(type):
 
 
 @six.add_metaclass(_ImageResourceBlockMeta)
-class ImageResourceBlock:
+class ImageResourceBlock(object):
     """
     Stores a single image resource block.
 
@@ -535,7 +535,7 @@ class PrintFlags(ImageResourceBlock):
         fd.write(data)
 
 
-class GuideResourceBlock:
+class GuideResourceBlock(object):
     def __init__(self, location=0, direction=enums.GuideDirection.vertical):
         self.location = location
         self.direction = direction
@@ -1094,7 +1094,7 @@ class PrintScale(ImageResourceBlock):
         util.write_value(fd, 'f', self.scale)
 
 
-class ImageResources:
+class ImageResources(object):
     """
     The image resource block section.
     """

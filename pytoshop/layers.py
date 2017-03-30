@@ -26,7 +26,7 @@ from . import tagged_block
 from . import util
 
 
-class LayerMask:
+class LayerMask(object):
     """
     Layer mask / adjustment layer data.
     """
@@ -476,7 +476,7 @@ class LayerMask:
     write.__doc__ = docs.write
 
 
-class ChannelImageData:
+class ChannelImageData(object):
     """
     A single plane of channel image data.
     """
@@ -575,7 +575,7 @@ class ChannelImageData:
     write.__doc__ = docs.write
 
 
-class LayerRecord:
+class LayerRecord(object):
     """
     Layer record.
 
@@ -1012,7 +1012,7 @@ class LayerRecord:
         fd.seek(offset)
 
 
-class LayerInfo:
+class LayerInfo(object):
     """
     A set of `LayerRecord` instances.
     """
@@ -1108,7 +1108,7 @@ class LayerInfo:
     write.__doc__ = docs.write
 
 
-class GlobalLayerMaskInfo:
+class GlobalLayerMaskInfo(object):
     """
     Global layer mask info.
     """
@@ -1192,7 +1192,7 @@ class GlobalLayerMaskInfo:
     write.__doc__ = docs.write
 
 
-class LayerAndMaskInfo:
+class LayerAndMaskInfo(object):
     """
     Layer and mask information section.
     """

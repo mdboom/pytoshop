@@ -162,7 +162,7 @@ def test_no_images():
 def test_proxy(compression):
     from pytoshop.user.nested_layers import Group, Image
 
-    class ImageProxy:
+    class ImageProxy(object):
         @property
         def shape(self):
             return (1000, 1000)

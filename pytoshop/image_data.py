@@ -17,7 +17,7 @@ from . import enums
 from . import util
 
 
-class ImageData:
+class ImageData(object):
     """
     Stores (non-layer) image data.
     """

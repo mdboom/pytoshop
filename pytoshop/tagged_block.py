@@ -37,7 +37,7 @@ class _TaggedBlockMeta(type):
 
 
 @six.add_metaclass(_TaggedBlockMeta)
-class TaggedBlock:
+class TaggedBlock(object):
     _large_layer_info_codes = set([
         b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
         b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',

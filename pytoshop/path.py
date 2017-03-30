@@ -56,7 +56,7 @@ class _PathRecordMeta(type):
 
 
 @six.add_metaclass(_PathRecordMeta)
-class PathRecord:
+class PathRecord(object):
     @property
     def type(self):
         return self._type
@@ -386,7 +386,7 @@ class ClipboardRecord(PathRecord):
                         top, left, bottom, right, self.resolution, 0))
 
 
-class PathResource:
+class PathResource(object):
     def __init__(self, path_records=[]):
         self.path_records = path_records
 

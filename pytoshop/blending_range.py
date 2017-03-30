@@ -16,7 +16,7 @@ from . import docs
 from . import util
 
 
-class BlendingRange:
+class BlendingRange(object):
     """
     Blending range data.
 
@@ -81,7 +81,7 @@ class BlendingRange:
     write.__doc__ = docs.write
 
 
-class BlendingRangePair:
+class BlendingRangePair(object):
     """
     Blending range pair.
 
@@ -139,7 +139,7 @@ class BlendingRangePair:
     write.__doc__ = docs.write
 
 
-class BlendingRanges:
+class BlendingRanges(object):
     """
     All of the layer blending range data.
 

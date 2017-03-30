@@ -13,7 +13,7 @@ from . import docs
 from . import util
 
 
-class ColorModeData:
+class ColorModeData(object):
     """
     Color mode data section.
 
