@@ -70,8 +70,6 @@ class Header(object):
 
     @height.setter
     def height(self, value):
-        print("HEIGHT")
-        print(value, type(value))
         if not isinstance(value, int):
             raise TypeError("height must be an integer")
         version_max = self.max_size_mapping[self.version]
