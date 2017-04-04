@@ -8,6 +8,7 @@ cimport cython
 import sys
 
 
+@cython.boundscheck(False)
 def decode_prediction_8bit(data):
     cdef unsigned char [:] input = data
     cdef int i
@@ -16,6 +17,7 @@ def decode_prediction_8bit(data):
         input[i+1] += input[i]
 
 
+@cython.boundscheck(False)
 def decode_prediction_16bit(data):
     cdef unsigned short [:] input = data
 
@@ -25,6 +27,7 @@ def decode_prediction_16bit(data):
         input[i+1] += input[i]
 
 
+@cython.boundscheck(False)
 def encode_prediction_8bit(data):
     cdef unsigned char [:] input = data
 
@@ -34,6 +37,7 @@ def encode_prediction_8bit(data):
         input[i] -= input[i-1]
 
 
+@cython.boundscheck(False)
 def encode_prediction_16bit(data):
     cdef unsigned short [:] input = data
 
