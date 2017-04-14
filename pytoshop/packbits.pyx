@@ -49,9 +49,9 @@ def encode_prediction_16bit(data):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef void decode_row(unsigned char *input,
-                     size_t length,
-                     unsigned char *output):
+cdef inline void decode_row(unsigned char *input,
+                            size_t length,
+                            unsigned char *output):
     cdef char header_byte
     cdef size_t input_pos = 0
     cdef size_t output_pos = 0
@@ -119,8 +119,8 @@ def decode(data, size_t height, size_t width, size_t depth, int version):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef void finish_raw(unsigned char *buffer, int *buffer_pos,
-                     unsigned char *output, int *output_pos):
+cdef inline void finish_raw(unsigned char *buffer, int *buffer_pos,
+                            unsigned char *output, int *output_pos):
     cdef int i
 
     if buffer_pos[0] == 0:
@@ -135,9 +135,9 @@ cdef void finish_raw(unsigned char *buffer, int *buffer_pos,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef void finish_rle(unsigned char *input, int *input_pos,
-                     unsigned char *output, int *output_pos,
-                     int repeat_count):
+cdef inline void finish_rle(unsigned char *input, int *input_pos,
+                            unsigned char *output, int *output_pos,
+                            int repeat_count):
     output[output_pos[0]] = 256 - (repeat_count - 1)
     output_pos[0] += 1
     output[output_pos[0]] = input[input_pos[0]]
@@ -161,7 +161,7 @@ def encode(data):
 
     if buff.len == 1:
         PyBuffer_Release(&buff)
-        return b'\x00' + data
+        return b'\x00' + data.tobytes()
 
     cdef unsigned char *input = <unsigned char *>buff.buf
     cdef Py_ssize_t input_size = buff.len
@@ -188,39 +188,39 @@ def encode(data):
         current_byte = input[input_pos]
 
         if current_byte == input[input_pos + 1]:
-            if state == 0:
-                finish_raw(buffer, &buffer_pos, output, &output_pos)
-                state = 1
-                repeat_count = 1
-            elif state == 1:
+            if state:
                 if repeat_count == 127:
                     finish_rle(
                         input, &input_pos, output, &output_pos, repeat_count)
                     repeat_count = 0
                 repeat_count += 1
+            else:
+                finish_raw(buffer, &buffer_pos, output, &output_pos)
+                state = 1
+                repeat_count = 1
         else:
-            if state == 0:
-                if buffer_pos == 127:
-                    finish_raw(buffer, &buffer_pos, output, &output_pos)
-                buffer[buffer_pos] = current_byte
-                buffer_pos += 1
-            elif state == 1:
+            if state:
                 repeat_count += 1
                 finish_rle(
                     input, &input_pos, output, &output_pos, repeat_count)
                 state = 0
                 repeat_count = 0
+            else:
+                if buffer_pos == 127:
+                    finish_raw(buffer, &buffer_pos, output, &output_pos)
+                buffer[buffer_pos] = current_byte
+                buffer_pos += 1
 
         input_pos += 1
 
-    if state == 0:
-        buffer[buffer_pos] = input[input_pos]
-        buffer_pos += 1
-        finish_raw(buffer, &buffer_pos, output, &output_pos)
-    else:
+    if state:
         repeat_count += 1
         finish_rle(
             input, &input_pos, output, &output_pos, repeat_count)
+    else:
+        buffer[buffer_pos] = input[input_pos]
+        buffer_pos += 1
+        finish_raw(buffer, &buffer_pos, output, &output_pos)
 
     PyBuffer_Release(&buff)
 
