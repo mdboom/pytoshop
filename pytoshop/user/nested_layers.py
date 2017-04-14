@@ -89,6 +89,20 @@ class Layer(object):
             raise ValueError("Invalid blend mode")
         self._blend_mode = value
 
+    @property
+    def metadata(self):
+        "metadata"
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        if not isinstance(value, dict):
+            raise TypeError("metadata must be a dict from int to bytes")
+        for k, v in value.items():
+            if not isinstance(k, int) or not isinstance(v, bytes):
+                raise TypeError("metadata must be a dict from int to bytes")
+        self._metadata = value
+
 
 class Group(Layer):
     """
@@ -101,7 +115,8 @@ class Group(Layer):
                  group_id=0,
                  blend_mode=enums.BlendMode.pass_through,
                  layers=None,
-                 closed=True):
+                 closed=True,
+                 metadata=None):
         self.name = name
         self.visible = visible
         self.opacity = opacity
@@ -111,6 +126,9 @@ class Group(Layer):
             layers = []
         self.layers = layers
         self.closed = closed
+        if metadata is None:
+            metadata = {}
+        self.metadata = metadata
 
     @property
     def layers(self):
@@ -143,7 +161,8 @@ class Image(Layer):
                  group_id=0,
                  blend_mode=enums.BlendMode.normal,
                  top=0, left=0, bottom=None, right=None,
-                 channels={}):
+                 channels={},
+                 metadata=None):
         self.name = name
         self.visible = visible
         self.opacity = opacity
@@ -154,6 +173,9 @@ class Image(Layer):
         self.bottom = bottom
         self.right = right
         self.channels = channels
+        if metadata is None:
+            metadata = {}
+        self.metadata = metadata
 
     @property
     def top(self):
@@ -305,6 +327,11 @@ def psd_to_nested_layers(psdfile):
         visible = layer.visible
         opacity = layer.opacity
         blend_mode = layer.blend_mode
+        metadata = blocks.get(b'shmd', None)
+        if metadata is None:
+            metadata = {}
+        else:
+            metadata = metadata.datas
         if group_ids is not None:
             group_id = int(group_ids[index])
         else:
@@ -321,7 +348,8 @@ def psd_to_nested_layers(psdfile):
                     blend_mode=blend_mode,
                     visible=visible,
                     opacity=opacity,
-                    group_id=group_id
+                    group_id=group_id,
+                    metadata=metadata
                 )
                 group_stack.append(group)
                 current_group.layers.append(group)
@@ -362,7 +390,8 @@ def psd_to_nested_layers(psdfile):
                 blend_mode=blend_mode,
                 visible=visible,
                 opacity=opacity,
-                group_id=group_id
+                group_id=group_id,
+                metadata=metadata
             )
             current_group.layers.append(layer)
 
@@ -379,17 +408,24 @@ def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
 
             name_source = len(flat_layers)
 
+            blocks = [
+                tagged_block.UnicodeLayerName(name=layer.name),
+                tagged_block.SectionDividerSetting(type=divider_type),
+                tagged_block.LayerId(id=len(flat_layers))
+            ]
+
+            if len(layer.metadata):
+                blocks.append(
+                    tagged_block.MetadataSetting(layer.metadata)
+                )
+
             flat_layers.append(
                 l.LayerRecord(
                     name=layer.name,
                     blend_mode=layer.blend_mode,
                     opacity=layer.opacity,
                     visible=layer.visible,
-                    blocks=[
-                        tagged_block.UnicodeLayerName(name=layer.name),
-                        tagged_block.SectionDividerSetting(type=divider_type),
-                        tagged_block.LayerId(id=len(flat_layers))
-                    ]
+                    blocks=blocks
                 )
             )
 
@@ -441,6 +477,11 @@ def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
                     channels[enums.ChannelId.transparency] = \
                         l.ChannelImageData(
                             image=-1, compression=compression)
+
+            if len(layer.metadata):
+                blocks.append(
+                    tagged_block.MetadataSetting(layer.metadata)
+                )
 
             flat_layers.append(
                 l.LayerRecord(

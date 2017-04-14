@@ -449,3 +449,64 @@ class VectorMask(TaggedBlock):
         util.write_value(fd, 'I', flags)
 
         self.path_resource.write(fd, header)
+
+
+class MetadataSetting(TaggedBlock):
+    def __init__(self, datas=None):
+        if datas is None:
+            datas = {}
+        self.datas = datas
+
+    _code = b'shmd'
+
+    @property
+    def datas(self):
+        return self._datas
+
+    @datas.setter
+    def datas(self, val):
+        if not isinstance(val, dict):
+            raise TypeError("datas must be a dict from int to bytes")
+        for k, v in val.items():
+            if not isinstance(k, int) or not isinstance(v, bytes):
+                raise TypeError("datas must be a dict from int to bytes")
+        self._datas = val
+
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        count = util.read_value(fd, 'I')
+        util.log("count: {}", count)
+        datas = {}
+        for i in range(count):
+            signature = util.read_value(fd, 'I')
+            key = util.read_value(fd, 'I')
+            copy = util.read_value(fd, 'b')
+            fd.read(3)
+            length = util.read_value(fd, 'I')
+            data = fd.read(length)
+            datas[key] = data
+
+            util.log(
+                "signature: {}, key: {}, copy: {}, length: {}",
+                signature, key, copy, length)
+
+        return cls(datas=datas)
+
+    def data_length(self, header):
+        return (
+            4 +
+            (16 * len(self.data)) +
+            sum(len(x) for x in self.datas.values())
+        )
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        util.write_value(fd, 'I', len(self.datas))
+        for key, data in self.datas.items():
+            util.write_value(fd, 'I', 0)
+            util.write_value(fd, 'I', key)
+            util.write_value(fd, 'b', 1)
+            fd.write(b'\0\0\0')
+            util.write_value(fd, 'I', len(data))
+            fd.write(data)
