@@ -496,7 +496,7 @@ class MetadataSetting(TaggedBlock):
     def data_length(self, header):
         return (
             4 +
-            (16 * len(self.data)) +
+            (16 * len(self.datas)) +
             sum(len(x) for x in self.datas.values())
         )
 
