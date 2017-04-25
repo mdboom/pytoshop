@@ -97,10 +97,10 @@ class Layer(object):
     @metadata.setter
     def metadata(self, value):
         if not isinstance(value, dict):
-            raise TypeError("metadata must be a dict from int to bytes")
+            raise TypeError("metadata must be a dict from bytes to bytes")
         for k, v in value.items():
-            if not isinstance(k, int) or not isinstance(v, bytes):
-                raise TypeError("metadata must be a dict from int to bytes")
+            if not isinstance(k, bytes) or not isinstance(v, bytes):
+                raise TypeError("metadata must be a dict from bytes to bytes")
         self._metadata = value
 
 

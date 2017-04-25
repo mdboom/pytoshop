@@ -466,10 +466,10 @@ class MetadataSetting(TaggedBlock):
     @datas.setter
     def datas(self, val):
         if not isinstance(val, dict):
-            raise TypeError("datas must be a dict from int to bytes")
+            raise TypeError("datas must be a dict from bytes to bytes")
         for k, v in val.items():
-            if not isinstance(k, int) or not isinstance(v, bytes):
-                raise TypeError("datas must be a dict from int to bytes")
+            if not isinstance(k, bytes) or not isinstance(v, bytes):
+                raise TypeError("datas must be a dict from bytes to bytes")
         self._datas = val
 
     @classmethod
@@ -479,17 +479,24 @@ class MetadataSetting(TaggedBlock):
         util.log("count: {}", count)
         datas = {}
         for i in range(count):
-            signature = util.read_value(fd, 'I')
-            key = util.read_value(fd, 'I')
+            signature = fd.read(4)
+            key = fd.read(4)
             copy = util.read_value(fd, 'b')
             fd.read(3)
-            length = util.read_value(fd, 'I')
-            data = fd.read(length)
+
+            entry_length = util.read_value(fd, 'I')
+            start = fd.tell()
+            data = fd.read(entry_length)
+            padded_length = util.pad(entry_length, 4)
+            if fd.tell() - start != padded_length:
+                fd.seek(padded_length - entry_length, 1)
+
             datas[key] = data
 
             util.log(
-                "signature: {}, key: {}, copy: {}, length: {}",
-                signature, key, copy, length)
+                ("signature: {}, key: {}, copy: {}, entry_length: {}, " +
+                 "padded_length: {}"),
+                signature, key, copy, entry_length, padded_length)
 
         return cls(datas=datas)
 
@@ -497,16 +504,17 @@ class MetadataSetting(TaggedBlock):
         return (
             4 +
             (16 * len(self.datas)) +
-            sum(len(x) for x in self.datas.values())
+            sum(util.pad(len(x), 4) for x in self.datas.values())
         )
 
     @util.trace_write
     def write_data(self, fd, header):
         util.write_value(fd, 'I', len(self.datas))
         for key, data in self.datas.items():
-            util.write_value(fd, 'I', 0)
-            util.write_value(fd, 'I', key)
+            fd.write(b'8BIM')
+            fd.write(key)
             util.write_value(fd, 'b', 1)
             fd.write(b'\0\0\0')
             util.write_value(fd, 'I', len(data))
             fd.write(data)
+            fd.write(b'\0' * (util.pad(len(data), 4) - len(data)))
