@@ -6,6 +6,11 @@ Improvements:
 
 - For speed purposes, pytoshop no longer uses traitlets.
 
+- Performance improvements to the compression/decompression code.
+
+- Added support for the ``shmd`` metadata tagged block, and the ability
+  to access it from the ``user.nested_layers`` API.
+
 Bugfixes:
 
 - Allow Numpy arrays of shape () in place of scalars for constant
