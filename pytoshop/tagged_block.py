@@ -41,7 +41,8 @@ class TaggedBlock(object):
     _large_layer_info_codes = set([
         b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
         b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',
-        b'PxSD'])
+        b'PxSD', b'lnkD', b'lnk2', b'lnk3', b'lnkE'
+    ])
 
     @property
     def code(self):
@@ -53,13 +54,20 @@ class TaggedBlock(object):
 
     def total_length(self, header, padding=1):
         length = 8
-        if header.version == 2 and self.code in self._large_layer_info_codes:
+        if self.is_long_length(self.code, header):
             length += 8
         else:
             length += 4
         length += util.pad(self.length(header), padding)
         return length
     total_length.__doc__ = docs.total_length
+
+    @staticmethod
+    def is_long_length(code, header):
+        return (
+            (header.version == 2 and
+             code in TaggedBlock._large_layer_info_codes)
+        )
 
     @classmethod
     @util.trace_read
@@ -70,7 +78,7 @@ class TaggedBlock(object):
 
         code = fd.read(4)
 
-        if header.version == 2 and code in cls._large_layer_info_codes:
+        if cls.is_long_length(code, header):
             length = util.read_value(fd, 'Q')
         else:
             length = util.read_value(fd, 'I')
@@ -112,7 +120,9 @@ class TaggedBlock(object):
         end = fd.tell()
         if end - start != length:
             raise ValueError(
-                "{} wrote the wrong amount".format(self.__class__))
+                "{} wrote the wrong amount.  Expected {}, got {}".format(
+                    self.__class__, length, end - start)
+            )
         fd.write(b'\0' * (padded_length - length))
     write.__doc__ = docs.write
 
