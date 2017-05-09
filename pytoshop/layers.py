@@ -564,13 +564,18 @@ class ChannelImageData(object):
                 fd, self.image, self.compression, shape, 1,
                 header.depth, header.version)
         else:
-            tell = self._fd.tell()
-            try:
-                self._fd.seek(self._offset)
-                data = self._fd.read(self._size)
-            finally:
-                self._fd.seek(tell)
-            fd.write(data)
+            if header.version == self._version:
+                tell = self._fd.tell()
+                try:
+                    self._fd.seek(self._offset)
+                    data = self._fd.read(self._size)
+                finally:
+                    self._fd.seek(tell)
+                fd.write(data)
+            else:
+                codecs.compress_image(
+                    fd, self.image, self.compression, shape, 1,
+                    header.depth, header.version)
         return fd.tell() - start
     write.__doc__ = docs.write
 
