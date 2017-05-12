@@ -2,6 +2,9 @@
 History
 =======
 
+0.4.0
+-----
+
 Improvements:
 
 - For speed purposes, pytoshop no longer uses traitlets.
