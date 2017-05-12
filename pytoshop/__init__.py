@@ -9,7 +9,7 @@ from .core import PsdFile
 
 __author__ = 'Michael Droettboom'
 __email__ = 'mdboom@gmail.com'
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 
 def read(fd):
