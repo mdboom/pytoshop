@@ -311,6 +311,8 @@ def psd_to_nested_layers(psdfile):
         enums.ImageResourceID.layers_group_info)
     if group_ids_block is not None:
         group_ids = group_ids_block.group_ids
+    else:
+        group_ids = None
 
     layers = psdfile.layer_and_mask_info.layer_info.layer_records
 
@@ -332,10 +334,9 @@ def psd_to_nested_layers(psdfile):
             metadata = {}
         else:
             metadata = metadata.datas
+        extra_args = {}
         if group_ids is not None:
-            group_id = int(group_ids[index])
-        else:
-            group_id = None
+            extra_args['group_id'] = group_ids[index]
 
         if divider is not None:
             if divider.type in (enums.SectionDividerSetting.closed,
@@ -348,8 +349,8 @@ def psd_to_nested_layers(psdfile):
                     blend_mode=blend_mode,
                     visible=visible,
                     opacity=opacity,
-                    group_id=group_id,
-                    metadata=metadata
+                    metadata=metadata,
+                    **extra_args
                 )
                 group_stack.append(group)
                 current_group.layers.append(group)
@@ -367,7 +368,7 @@ def psd_to_nested_layers(psdfile):
                         visible=layer.visible,
                         opacity=layer.opacity,
                         layers=layers[1:],
-                        group_id=group_id
+                        **extra_args
                     )
 
                     group_stack[0].layers = [group]
@@ -390,8 +391,8 @@ def psd_to_nested_layers(psdfile):
                 blend_mode=blend_mode,
                 visible=visible,
                 opacity=opacity,
-                group_id=group_id,
-                metadata=metadata
+                metadata=metadata,
+                **extra_args
             )
             current_group.layers.append(layer)
 
