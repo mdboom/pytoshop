@@ -13,6 +13,14 @@ Improvements:
 
 Bugfixes:
 
+- Updated the list of tagged blocks that use 8-bit lengths.
+
+- Fixed a bug where the image data would be corrupted when writing
+  images from an input file to an output file with a different file
+  format version.
+
+- Fixed a crash when the input file contains no layer group ids.
+
 - Allow Numpy arrays of shape () in place of scalars for constant
   images.
 
