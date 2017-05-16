@@ -17,7 +17,7 @@ import six
 from .. import core
 from .. import enums
 from .. import image_resources
-from .. import layers as l
+from .. import layers as mlayers
 from .. import path
 from .. import tagged_block
 from .. import util
@@ -399,107 +399,119 @@ def psd_to_nested_layers(psdfile):
     return root.layers
 
 
+def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
+    if layer.closed:
+        divider_type = enums.SectionDividerSetting.closed
+    else:
+        divider_type = enums.SectionDividerSetting.open
+
+    name_source = len(flat_layers)
+
+    blocks = [
+        tagged_block.UnicodeLayerName(name=layer.name),
+        tagged_block.SectionDividerSetting(type=divider_type),
+        tagged_block.LayerId(id=len(flat_layers))
+    ]
+
+    if len(layer.metadata):
+        blocks.append(
+            tagged_block.MetadataSetting(layer.metadata)
+        )
+
+    flat_layers.append(
+        mlayers.LayerRecord(
+            name=layer.name,
+            blend_mode=layer.blend_mode,
+            opacity=layer.opacity,
+            visible=layer.visible,
+            blocks=blocks
+        )
+    )
+
+    group_ids.append(layer.group_id)
+
+    _flatten_layers(
+        layer.layers, flat_layers, group_ids, compression, vector_mask)
+
+    flat_layers.append(
+        mlayers.LayerRecord(
+            blocks=[
+                tagged_block.SectionDividerSetting(
+                    type=enums.SectionDividerSetting.bounding),
+                tagged_block.LayerNameSource(id=name_source)
+            ]
+        )
+    )
+
+    group_ids.append(0)
+
+
+def _flatten_image(layer, flat_layers, group_ids, compression, vector_mask):
+    channels = OrderedDict()
+    for id, im in layer.channels.items():
+        if isinstance(im, mlayers.ChannelImageData):
+            channels[id] = im
+        else:
+            channels[id] = mlayers.ChannelImageData(
+                image=im, compression=compression)
+    if (enums.ChannelId.transparency in channels and
+            np.all(channels[enums.ChannelId.transparency].image == 0)):
+        return
+
+    blocks = [
+        tagged_block.UnicodeLayerName(name=layer.name),
+        tagged_block.LayerId(id=len(flat_layers))
+    ]
+
+    if vector_mask:
+        blocks.append(
+            tagged_block.VectorMask(
+                path_resource=path.PathResource.from_rect(
+                    layer.top + 5, layer.left + 5,
+                    layer.bottom - 5, layer.right - 5
+                )
+            )
+        )
+    else:
+        if enums.ChannelId.transparency not in channels:
+            channels[enums.ChannelId.transparency] = \
+                mlayers.ChannelImageData(
+                    image=-1, compression=compression)
+
+    if len(layer.metadata):
+        blocks.append(
+            tagged_block.MetadataSetting(layer.metadata)
+        )
+
+    flat_layers.append(
+        mlayers.LayerRecord(
+            top=layer.top,
+            left=layer.left,
+            bottom=layer.bottom,
+            right=layer.right,
+            name=layer.name,
+            blend_mode=layer.blend_mode,
+            opacity=layer.opacity,
+            visible=layer.visible,
+            channels=channels,
+            blocks=blocks
+        )
+    )
+
+    group_ids.append(layer.group_id)
+
+
 def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
     for layer in layers:
         if isinstance(layer, Group):
-            if layer.closed:
-                divider_type = enums.SectionDividerSetting.closed
-            else:
-                divider_type = enums.SectionDividerSetting.open
-
-            name_source = len(flat_layers)
-
-            blocks = [
-                tagged_block.UnicodeLayerName(name=layer.name),
-                tagged_block.SectionDividerSetting(type=divider_type),
-                tagged_block.LayerId(id=len(flat_layers))
-            ]
-
-            if len(layer.metadata):
-                blocks.append(
-                    tagged_block.MetadataSetting(layer.metadata)
-                )
-
-            flat_layers.append(
-                l.LayerRecord(
-                    name=layer.name,
-                    blend_mode=layer.blend_mode,
-                    opacity=layer.opacity,
-                    visible=layer.visible,
-                    blocks=blocks
-                )
+            _flatten_group(
+                layer, flat_layers, group_ids, compression, vector_mask
             )
-
-            group_ids.append(layer.group_id)
-
-            _flatten_layers(
-                layer.layers, flat_layers, group_ids, compression, vector_mask)
-
-            flat_layers.append(
-                l.LayerRecord(
-                    blocks=[
-                        tagged_block.SectionDividerSetting(
-                            type=enums.SectionDividerSetting.bounding),
-                        tagged_block.LayerNameSource(id=name_source)
-                    ]
-                )
-            )
-
-            group_ids.append(0)
 
         elif isinstance(layer, Image):
-            channels = OrderedDict()
-            for id, im in layer.channels.items():
-                if isinstance(im, l.ChannelImageData):
-                    channels[id] = im
-                else:
-                    channels[id] = l.ChannelImageData(
-                        image=im, compression=compression)
-            if (enums.ChannelId.transparency in channels and
-                    np.all(channels[enums.ChannelId.transparency].image == 0)):
-                continue
-
-            blocks = [
-                tagged_block.UnicodeLayerName(name=layer.name),
-                tagged_block.LayerId(id=len(flat_layers))
-            ]
-
-            if vector_mask:
-                blocks.append(
-                    tagged_block.VectorMask(
-                        path_resource=path.PathResource.from_rect(
-                            layer.top + 5, layer.left + 5,
-                            layer.bottom - 5, layer.right - 5
-                        )
-                    )
-                )
-            else:
-                if enums.ChannelId.transparency not in channels:
-                    channels[enums.ChannelId.transparency] = \
-                        l.ChannelImageData(
-                            image=-1, compression=compression)
-
-            if len(layer.metadata):
-                blocks.append(
-                    tagged_block.MetadataSetting(layer.metadata)
-                )
-
-            flat_layers.append(
-                l.LayerRecord(
-                    top=layer.top,
-                    left=layer.left,
-                    bottom=layer.bottom,
-                    right=layer.right,
-                    name=layer.name,
-                    blend_mode=layer.blend_mode,
-                    opacity=layer.opacity,
-                    visible=layer.visible,
-                    channels=channels,
-                    blocks=blocks
-                )
+            _flatten_image(
+                layer, flat_layers, group_ids, compression, vector_mask
             )
-
-            group_ids.append(layer.group_id)
 
     return flat_layers, group_ids
 
@@ -663,8 +675,8 @@ def nested_layers_to_psd(
         width=width,
         depth=depth,
         color_mode=color_mode,
-        layer_and_mask_info=l.LayerAndMaskInfo(
-            layer_info=l.LayerInfo(
+        layer_and_mask_info=mlayers.LayerAndMaskInfo(
+            layer_info=mlayers.LayerInfo(
                 layer_records=flat_layers
             )
         ),
