@@ -2,8 +2,8 @@
 History
 =======
 
-0.4.0
------
+0.4.0 (2017-05-12)
+------------------
 
 Improvements:
 
@@ -27,8 +27,8 @@ Bugfixes:
 - Allow Numpy arrays of shape () in place of scalars for constant
   images.
 
-0.3.0
------
+0.3.0 (2017-01-09)
+------------------
 
 Improvements:
 
