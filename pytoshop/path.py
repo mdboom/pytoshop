@@ -280,7 +280,7 @@ class _PointRecord(PathRecord):
         else:
             x2 = _write_point(self.x2, header.width)
 
-        fd.write(struct.pack('>iiiiii', y0, x0, y1, x1, y2, x2))
+        util.write_value(fd, 'iiiiii', y0, x0, y1, x1, y2, x2)
 
 
 class ClosedSubpathBezierKnotLinked(_PointRecord):
@@ -381,9 +381,9 @@ class ClipboardRecord(PathRecord):
         bottom = _write_point(self.bottom, header.height)
         right = _write_point(self.right, header.width)
 
-        fd.write(
-            struct.pack('>iiiiii',
-                        top, left, bottom, right, self.resolution, 0))
+        util.write_value(
+            fd, 'iiiiii', top, left, bottom, right, self.resolution, 0
+        )
 
 
 class PathResource(object):

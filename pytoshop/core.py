@@ -129,10 +129,8 @@ class Header(object):
     @classmethod
     @util.trace_read
     def header_read(cls, fd):
-        data = fd.read(26)
-
         (signature, version, _reserved, num_channels,
-         height, width, depth, color_mode) = struct.unpack('>4sH6sHIIHH', data)
+         height, width, depth, color_mode) = util.read_value(fd, '4sH6sHIIHH')
 
         if signature != b'8BPS':
             raise ValueError("Invalid signature '{}'".format(signature))
@@ -162,11 +160,11 @@ class Header(object):
         fd : file-like object
             Must be writable, seekable and open in binary mode.
         """
-        data = struct.pack(
-            '>4sH6sHIIHH', b'8BPS', self.version, b'',
+        util.write_value(
+            fd, '4sH6sHIIHH', b'8BPS', self.version, b'',
             self.num_channels, self.height, self.width, self.depth,
-            self.color_mode)
-        fd.write(data)
+            self.color_mode
+        )
     write.__doc__ = docs.write_single
 
 

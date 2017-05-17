@@ -20,7 +20,7 @@ DEBUG = False
 
 def read_value(fd, fmt, endian='>'):
     """
-    Read a single binary value from a file-like object.
+    Read a values from a file-like object.
 
     Parameters
     ----------
@@ -29,7 +29,8 @@ def read_value(fd, fmt, endian='>'):
 
     fmt : str
         A `struct` module `format character
-        <https://docs.python.org/2/library/struct.html#format-characters>`__.
+        <https://docs.python.org/2/library/struct.html#format-characters>`__
+        string.
 
     endian : str
         The endianness. Must be ``>`` or ``<``.  Default: ``>``.
@@ -37,14 +38,21 @@ def read_value(fd, fmt, endian='>'):
     Returns
     -------
     value : any
-        The value read from the file.
+        The value(s) read from the file.
+
+        If a single value, it is returned alone.  If multiple values,
+        a tuple is returned.
     """
     fmt = endian + fmt
     size = struct.calcsize(fmt)
-    return struct.unpack(fmt, fd.read(size))[0]
+    result = struct.unpack(fmt, fd.read(size))
+    if len(result) == 1:
+        return result[0]
+    else:
+        return result
 
 
-def write_value(fd, fmt, value, endian='>'):
+def write_value(fd, fmt, *value, endian='>'):
     """
     Write a single binary value to a file-like object.
 
@@ -55,7 +63,8 @@ def write_value(fd, fmt, value, endian='>'):
 
     fmt : str
         A `struct` module `format character
-        <https://docs.python.org/2/library/struct.html#format-characters>`__.
+        <https://docs.python.org/2/library/struct.html#format-characters>`__
+        string.
 
     value : any
         The value to encode and write to the file.
@@ -64,7 +73,7 @@ def write_value(fd, fmt, value, endian='>'):
         The endianness. Must be ``>`` or ``<``.  Default: ``>``.
     """
     fmt = endian + fmt
-    fd.write(struct.pack(fmt, value))
+    fd.write(struct.pack(fmt, *value))
 
 
 def pad(number, divisor):

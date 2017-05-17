@@ -2,6 +2,11 @@
 History
 =======
 
+Minor improvements:
+
+- Parse multiple values in a struct together when possible.  This has
+  a modest speed improvement.
+
 0.4.0 (2017-05-12)
 ------------------
 

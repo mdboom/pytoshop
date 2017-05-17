@@ -430,8 +430,7 @@ class VectorMask(TaggedBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, code, length, header):
-        version = util.read_value(fd, 'I')
-        flags = util.read_value(fd, 'I')
+        version, flags = util.read_value(fd, 'II')
         invert, not_link, disable = util.unpack_bitflags(flags, 3)
 
         util.log(
@@ -452,11 +451,9 @@ class VectorMask(TaggedBlock):
 
     @util.trace_write
     def write_data(self, fd, header):
-        util.write_value(fd, 'I', self.version)
-
         flags = util.pack_bitflags(self.invert, self.not_link, self.disable)
 
-        util.write_value(fd, 'I', flags)
+        util.write_value(fd, 'II', self.version, flags)
 
         self.path_resource.write(fd, header)
 
@@ -489,12 +486,8 @@ class MetadataSetting(TaggedBlock):
         util.log("count: {}", count)
         datas = {}
         for i in range(count):
-            signature = fd.read(4)
-            key = fd.read(4)
-            copy = util.read_value(fd, 'b')
-            fd.read(3)
-
-            entry_length = util.read_value(fd, 'I')
+            signature, key, copy, _, entry_length = util.read_value(
+                fd, '4s4sb3sI')
             start = fd.tell()
             data = fd.read(entry_length)
             padded_length = util.pad(entry_length, 4)
@@ -521,10 +514,8 @@ class MetadataSetting(TaggedBlock):
     def write_data(self, fd, header):
         util.write_value(fd, 'I', len(self.datas))
         for key, data in self.datas.items():
-            fd.write(b'8BIM')
-            fd.write(key)
-            util.write_value(fd, 'b', 1)
-            fd.write(b'\0\0\0')
-            util.write_value(fd, 'I', len(data))
+            util.write_value(
+                fd, '4s4sb3sI', b'8BIM', key, 1, b'\0\0\0', len(data)
+            )
             fd.write(data)
             fd.write(b'\0' * (util.pad(len(data), 4) - len(data)))

@@ -315,7 +315,7 @@ class BorderInfo(ImageResourceBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
-        num, den, unit = struct.unpack('>HHH', fd.read(6))
+        num, den, unit = util.read_value(fd, 'HHH')
         return cls(
             name=name, border_width_num=num, border_width_den=den,
             unit=unit)
@@ -325,9 +325,10 @@ class BorderInfo(ImageResourceBlock):
 
     @util.trace_write
     def write_data(self, fd, header):
-        data = struct.pack('>HHH', self.border_width_num,
-                           self.border_width_den, self.unit)
-        fd.write(data)
+        util.write_value(
+            fd, 'HHH', self.border_width_num,
+            self.border_width_den, self.unit
+        )
 
 
 class BackgroundColor(ImageResourceBlock):
@@ -374,7 +375,7 @@ class BackgroundColor(ImageResourceBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
-        space_id, a, b, c, d = struct.unpack('>HHHHH', fd.read(10))
+        space_id, a, b, c, d = util.read_value(fd, 'HHHHH')
         if space_id == enums.ColorSpace.lab:
             b -= 32767
             c -= 32767
@@ -393,10 +394,9 @@ class BackgroundColor(ImageResourceBlock):
         if self.color_space == enums.ColorSpace.lab:
             b += 32767
             c += 32767
-        data = struct.pack(
-            '>HHHHH', self.color_space, a, b, c, d
+        util.write_value(
+            fd, 'HHHHH', self.color_space, a, b, c, d
         )
-        fd.write(data)
 
 
 class PrintFlags(ImageResourceBlock):
@@ -511,7 +511,7 @@ class PrintFlags(ImageResourceBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
-        vals = struct.unpack('>BBBBBBBBB', fd.read(9))
+        vals = util.read_value(fd, 'BBBBBBBBB')
         vals = [bool(x) for x in vals]
         return cls(
             name=name, labels=vals[0], crop_marks=vals[1],
@@ -531,8 +531,7 @@ class PrintFlags(ImageResourceBlock):
             self.interpolate, self.caption, self.print_flags
         ]
         vals = [(x and 255 or 0) for x in vals]
-        data = struct.pack('>BBBBBBBBB', *vals)
-        fd.write(data)
+        util.write_value(fd, 'BBBBBBBBB', *vals)
 
 
 class GuideResourceBlock(object):
@@ -566,14 +565,12 @@ class GuideResourceBlock(object):
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
-        data = fd.read(5)
-        location, direction = struct.unpack('>IB', data)
+        location, direction = util.read_value(fd, 'IB')
         return cls(location=location, direction=direction)
 
     @util.trace_write
     def write(self, fd, header):
-        data = struct.pack('>IB', self.location, self.direction)
-        fd.write(data)
+        util.write_value(fd, 'IB', self.location, self.direction)
 
 
 class GridAndGuidesInfo(ImageResourceBlock):
@@ -633,8 +630,8 @@ class GridAndGuidesInfo(ImageResourceBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
-        version, grid_hori, grid_vert, nguides = struct.unpack(
-            '>IIII', fd.read(16))
+        version, grid_hori, grid_vert, nguides = util.read_value(
+            fd, 'IIII')
         if version != 1:
             raise ValueError(
                 "Unknown version {} in grid and guides info block.".format(
@@ -652,10 +649,9 @@ class GridAndGuidesInfo(ImageResourceBlock):
 
     @util.trace_write
     def write_data(self, fd, header):
-        data = struct.pack(
-            '>IIII', 1, self.grid_hori, self.grid_vert, len(self.guides)
+        util.write_value(
+            fd, 'IIII', 1, self.grid_hori, self.grid_vert, len(self.guides)
         )
-        fd.write(data)
         for guide in self.guides:
             guide.write(fd, header)
 
@@ -894,9 +890,8 @@ class AlphaIdentifiers(ImageResourceBlock):
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
         length = util.read_value(fd, 'I')
-        identifiers = []
-        for i in range(length):
-            identifiers.append(util.read_value(fd, 'I'))
+        buf = fd.read(4 * length)
+        identifiers = list(np.frombuffer(buf, np.uint32))
         return cls(
             name=name, identifiers=identifiers
         )
@@ -986,8 +981,8 @@ class VersionInfo(ImageResourceBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
-        version = util.read_value(fd, 'I')
-        has_real_merged_data = bool(util.read_value(fd, 'B'))
+        version, has_real_merged_data = util.read_value(fd, 'IB')
+        has_real_merged_data = bool(has_real_merged_data)
         writer = util.read_unicode_string(fd)
         reader = util.read_unicode_string(fd)
         file_version = util.read_value(fd, 'I')
@@ -1006,8 +1001,7 @@ class VersionInfo(ImageResourceBlock):
 
     @util.trace_write
     def write_data(self, fd, header):
-        util.write_value(fd, 'I', self.version)
-        util.write_value(fd, 'B', self.has_real_merged_data)
+        util.write_value(fd, 'IB', self.version, self.has_real_merged_data)
         util.write_unicode_string(fd, self.writer)
         util.write_unicode_string(fd, self.reader)
         util.write_value(fd, 'I', self.file_version)
@@ -1075,10 +1069,7 @@ class PrintScale(ImageResourceBlock):
     @classmethod
     @util.trace_read
     def read_data(cls, fd, resource_id, name, length, header):
-        style = util.read_value(fd, 'H')
-        x = util.read_value(fd, 'f')
-        y = util.read_value(fd, 'f')
-        scale = util.read_value(fd, 'f')
+        style, x, y, scale = util.read_value(fd, 'Hfff')
         return cls(
             name=name, style=style, x=x, y=y, scale=scale
         )
@@ -1088,10 +1079,7 @@ class PrintScale(ImageResourceBlock):
 
     @util.trace_write
     def write_data(self, fd, header):
-        util.write_value(fd, 'H', self.style)
-        util.write_value(fd, 'f', self.x)
-        util.write_value(fd, 'f', self.y)
-        util.write_value(fd, 'f', self.scale)
+        util.write_value(fd, 'Hfff', self.style, self.x, self.y, self.scale)
 
 
 class ImageResources(object):

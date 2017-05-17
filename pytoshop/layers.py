@@ -364,7 +364,7 @@ class LayerMask(object):
         if length == 0:
             return cls(**d)
 
-        top, left, bottom, right = struct.unpack('>iiii', fd.read(16))
+        top, left, bottom, right = util.read_value(fd, 'iiii')
         d['top'] = top
         d['left'] = left
         d['bottom'] = bottom
@@ -412,7 +412,7 @@ class LayerMask(object):
             d['real_flags'], d['real_user_mask_background']
         )
 
-        top, left, bottom, right = struct.unpack('>iiii', fd.read(16))
+        top, left, bottom, right = util.read_value(fd, 'iiii')
         d['real_top'] = top
         d['real_left'] = left
         d['real_bottom'] = bottom
@@ -431,9 +431,7 @@ class LayerMask(object):
     @util.trace_write
     def write(self, fd, header):
         def write_rectangle(top, left, bottom, right):
-            fd.write(
-                struct.pack(
-                    '>iiii', top, left, bottom, right))
+            util.write_value(fd, 'iiii', top, left, bottom, right)
 
         def write_default_color(color):
             if color:
@@ -850,49 +848,47 @@ class LayerRecord(object):
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
-        top, left, bottom, right = struct.unpack('>iiii', fd.read(16))
+        top, left, bottom, right = util.read_value(fd, 'iiii')
 
         util.log("position: ({}, {}, {}, {})", top, left, bottom, right)
 
         num_channels = util.read_value(fd, 'H')
         channel_ids = []
         channel_data_lengths = []
+        if header.version == 1:
+            fmt = 'hI'
+        else:
+            fmt = 'hQ'
         for i in range(num_channels):
-            channel_ids.append(util.read_value(fd, 'h'))
-            if header.version == 1:
-                channel_data_lengths.append(util.read_value(fd, 'I'))
-            else:
-                channel_data_lengths.append(util.read_value(fd, 'Q'))
+            channel_id, data_length = util.read_value(fd, fmt)
+            channel_ids.append(channel_id)
+            channel_data_lengths.append(data_length)
 
         util.log(
             "num_channels: {}, channel_ids: {}, channel_data_lengths: {}",
             num_channels, channel_ids, channel_data_lengths
         )
 
-        blend_mode_signature = fd.read(4)
+        (blend_mode_signature, blend_mode, opacity, clipping, flags, _,
+         extra_length) = util.read_value(fd, '4s4sBBBBI')
         if blend_mode_signature != b'8BIM':
             raise ValueError(
                 "Invalid blend mode signature '{}'".format(
                     blend_mode_signature))
 
-        blend_mode = fd.read(4)
-        opacity = util.read_value(fd, 'B')
-        clipping = bool(util.read_value(fd, 'B'))
-        flags = util.read_value(fd, 'B')
+        clipping = bool(clipping)
         (transparency_protected,
          visible,
          _,
          _,
          pixel_data_irrelevant) = util.unpack_bitflags(flags, 5)
         visible = not visible
-        fd.seek(1, 1)  # filler
 
         util.log(
             "blend_mode: {}, opacity: {}, clipping: {}, flags: {}",
             blend_mode, opacity, clipping, flags
         )
 
-        extra_length = util.read_value(fd, 'I')
         end = fd.tell() + extra_length
 
         util.log("extra_length: {}, end: {}", extra_length, end)
@@ -957,34 +953,31 @@ class LayerRecord(object):
 
     @util.trace_write
     def write(self, fd, header):
-        fd.write(struct.pack('>iiii',
-                 self.top, self.left, self.bottom, self.right))
+        util.write_value(
+            fd, 'iiii',
+            self.top, self.left, self.bottom, self.right
+        )
         util.write_value(fd, 'H', len(self.channels))
         self.channel_lengths_offset = fd.tell()
         if header.version == 1:
             fd.seek(6 * len(self.channels), 1)
         else:
             fd.seek(10 * len(self.channels), 1)
-        fd.write(b'8BIM')
-        fd.write(self.blend_mode)
-        util.write_value(fd, 'B', self.opacity)
-        util.write_value(fd, 'B', int(self.clipping))
         flags = util.pack_bitflags(
             self.transparency_protected,
             not self.visible,
             False,
             True,
             self.pixel_data_irrelevant)
-        util.write_value(fd, 'B', flags)
-        fd.write(b'\0')  # filler
-
         extra_length = (
             self.mask.total_length(header) +
             self.blending_ranges.total_length(header) +
             util.pascal_string_length(self.name, 4) +
             sum(x.total_length(header) for x in self.blocks)
         )
-        util.write_value(fd, 'I', extra_length)
+        util.write_value(
+            fd, '4s4sBBBBI', b'8BIM', self.blend_mode, self.opacity,
+            int(self.clipping), flags, 0, extra_length)
         self.mask.write(fd, header)
         self.blending_ranges.write(fd, header)
         util.write_pascal_string(fd, self.name, 4)
@@ -1008,12 +1001,12 @@ class LayerRecord(object):
 
         offset = fd.tell()
         fd.seek(self.channel_lengths_offset)
+        if header.version == 1:
+            fmt = 'hI'
+        else:
+            fmt = 'hQ'
         for channel_id, length in zip(self.channels.keys(), lengths):
-            util.write_value(fd, 'h', channel_id)
-            if header.version == 1:
-                util.write_value(fd, 'I', length)
-            else:
-                util.write_value(fd, 'Q', length)
+            util.write_value(fd, fmt, channel_id, length)
         fd.seek(offset)
 
 
@@ -1170,9 +1163,7 @@ class GlobalLayerMaskInfo(object):
         if length == 0:
             return cls()
 
-        overlay_color_space = fd.read(10)
-        opacity = util.read_value(fd, 'H')
-        kind = util.read_value(fd, 'B')
+        overlay_color_space, opacity, kind = util.read_value(fd, '10sHB')
 
         util.log(
             "overlay_color_space: {}, opacity: {}, kind: {}",
@@ -1189,11 +1180,10 @@ class GlobalLayerMaskInfo(object):
 
     @util.trace_write
     def write(self, fd, header):
-        util.write_value(fd, 'I', 16)
-        fd.write(self.overlay_color_space)
-        util.write_value(fd, 'H', self.opacity)
-        util.write_value(fd, 'B', self.kind)
-        fd.write(b'\0\0\0')  # filler
+        util.write_value(
+            fd, 'I10sHB3s', 16, self.overlay_color_space, self.opacity,
+            self.kind, b'\0\0\0'
+        )
     write.__doc__ = docs.write
 
 
