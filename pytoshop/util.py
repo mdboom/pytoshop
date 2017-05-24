@@ -184,7 +184,7 @@ def encode_unicode_string(s):
     Encode Photoshop's definition of a `Unicode String
     <https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#UnicodeStringDefine>`__.
     """
-    return struct.pack('>L', len(s)) + s.encode('utf_16_be')
+    return struct.pack('>L', len(s) + 1) + s.encode('utf_16_be') + b'\0\0'
 
 
 def read_unicode_string(fd):
