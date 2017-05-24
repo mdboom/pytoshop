@@ -341,3 +341,49 @@ class PrintScaleStyle(enum.IntEnum):
     centered = 0
     size_to_fit = 1
     user_defined = 2
+
+
+class PlacedLayerType(enum.IntEnum):
+    unknown = 0
+    vector = 1
+    raster = 2
+    image_stack = 3
+
+
+class OSType(enum.Enum):
+    reference = b'obj '
+    descriptor = b'Objc'
+    list = b'VlLs'
+    double = b'doub'
+    unit_float = b'UntF'
+    unit_floats = b'UnFl'
+    string = b'TEXT'
+    enumerated = b'enum'
+    integer = b'long'
+    large_integer = b'comp'
+    boolean = b'bool'
+    global_object = b'GlbO'
+    class1 = b'type'
+    class2 = b'GlbC'
+    alias = b'alis'
+    raw_data = b'tdta'
+    object_array = b'ObAr'
+
+
+class RefOSType(enum.Enum):
+    property = b'prop'
+    cls = b'Clss'
+    enumerated_reference = b'Enmr'
+    offset = b'rele'
+    identifier = b'Idnt'
+    index = b'indx'
+    name = b'name'
+
+
+class OSTypeUnit(enum.Enum):
+    angle = b'#Ang'
+    density = b'#Rsl'
+    distance = b'#Rlt'
+    none = b'#Nne'
+    percent = b'#Prc'
+    pixels = b'#Pxl'

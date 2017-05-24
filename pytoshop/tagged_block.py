@@ -9,9 +9,14 @@
 from __future__ import unicode_literals, absolute_import
 
 
+import io
+import struct
+
+
 import six
 
 
+from . import actions
 from . import docs
 from . import enums
 from . import path
@@ -483,8 +488,13 @@ class MetadataSetting(TaggedBlock):
         if not isinstance(val, dict):
             raise TypeError("datas must be a dict from bytes to bytes")
         for k, v in val.items():
-            if not isinstance(k, bytes) or not isinstance(v, bytes):
-                raise TypeError("datas must be a dict from bytes to bytes")
+            if (not isinstance(k, bytes) or
+                not isinstance(v, tuple) or
+                len(v) != 2 or
+                not isinstance(v[0], bool) or
+                not isinstance(v[1], bytes)):
+                raise TypeError(
+                    "datas must be a dict from bytes to (bool, bytes)")
         self._datas = val
 
     @classmethod
@@ -498,11 +508,12 @@ class MetadataSetting(TaggedBlock):
                 fd, '4s4sb3sI')
             start = fd.tell()
             data = fd.read(entry_length)
+            copy = bool(copy)
             padded_length = util.pad(entry_length, 4)
             if fd.tell() - start != padded_length:
                 fd.seek(padded_length - entry_length, 1)
 
-            datas[key] = data
+            datas[key] = (copy, data)
 
             util.log(
                 ("signature: {}, key: {}, copy: {}, entry_length: {}, " +
@@ -515,15 +526,513 @@ class MetadataSetting(TaggedBlock):
         return (
             4 +
             (16 * len(self.datas)) +
-            sum(util.pad(len(x), 4) for x in self.datas.values())
+            sum(util.pad(len(x[1]), 4) for x in self.datas.values())
         )
 
     @util.trace_write
     def write_data(self, fd, header):
         util.write_value(fd, 'I', len(self.datas))
-        for key, data in self.datas.items():
+        for key, (copy, data) in self.datas.items():
             util.write_value(
-                fd, '4s4sb3sI', b'8BIM', key, 1, b'\0\0\0', len(data)
+                fd, '4s4sb3sI', b'8BIM', key, copy, b'\0\0\0', len(data)
             )
             fd.write(data)
             fd.write(b'\0' * (util.pad(len(data), 4) - len(data)))
+
+
+class LinkedLayer(object):
+    def __init__(self,
+                 link_type=b'liFD',
+                 version=7,
+                 unique_id=b'',
+                 filename='',
+                 filetype=b'8BPB',
+                 creator=b'8BIM',
+                 content=None,
+                 embedded_file=None,
+                 uuid=''):
+        if content is not None and embedded_file is not None:
+            raise ValueError(
+                "May not provide both content and embedded_file"
+            )
+
+        self.link_type = link_type
+        self.version = version
+        self.unique_id = unique_id
+        self.filename = filename
+        self.filetype = filetype
+        self.creator = creator
+        self.content = content
+        self.uuid = uuid
+        self.embedded_file = embedded_file
+
+    @property
+    def link_type(self):
+        return self._link_type
+
+    @link_type.setter
+    def link_type(self, value):
+        if (not isinstance(value, bytes) or len(value) != 4 or
+                value not in (b'liFD', b'liFE', b'liFA')):
+            raise ValueError("Invalid link type '{}'".format(repr(value)))
+        self._link_type = value
+
+    @property
+    def version(self):
+        return self._version
+
+    @version.setter
+    def version(self, value):
+        if (not isinstance(value, int) or
+                value < 1 or value > 7):
+            raise ValueError("version must be 1 - 7")
+        self._version = value
+
+    @property
+    def unique_id(self):
+        return self._unique_id
+
+    @unique_id.setter
+    def unique_id(self, value):
+        if not isinstance(value, six.text_type):
+            raise TypeError("unique_id must be a unicode string")
+        self._unique_id = value
+
+    @property
+    def filename(self):
+        return self._filename
+
+    @filename.setter
+    def filename(self, value):
+        if not isinstance(value, six.text_type):
+            raise TypeError("filename must be a unicode string")
+        self._filename = value
+
+    @property
+    def filetype(self):
+        return self._filetype
+
+    @filetype.setter
+    def filetype(self, value):
+        if (not isinstance(value, bytes) or len(value) != 4):
+            raise ValueError("Invalid filetype '{}'".format(repr(value)))
+        self._filetype = value
+
+    @property
+    def creator(self):
+        return self._creator
+
+    @creator.setter
+    def creator(self, value):
+        if (not isinstance(value, bytes) or len(value) != 4):
+            raise ValueError("Invalid creator '{}'".format(repr(value)))
+        self._creator = value
+
+    @property
+    def content(self):
+        if self._content is not None:
+            return self._content
+        else:
+            fd = io.BytesIO()
+            self.embedded_file.write(fd)
+            return fd.getvalue()
+
+    @content.setter
+    def content(self, value):
+        if value is None:
+            self._content = value
+        else:
+            if not isinstance(value, bytes):
+                raise ValueError("content must be bytes or None")
+            self._content = value
+            self._embedded_file = None
+
+    @property
+    def uuid(self):
+        return self._uuid
+
+    @uuid.setter
+    def uuid(self, value):
+        if (value is not None and not isinstance(value, six.text_type)):
+            raise ValueError("uuid must be a unicode string")
+        self._uuid = value
+
+    @property
+    def embedded_file(self):
+        if self._content is not None:
+            from . import read
+            if self._content.startswith(b'8BPS'):
+                fd = io.BytesIO(self._content)
+                psd = read(fd)
+                return psd
+            else:
+                raise ValueError(
+                    "Content is not an embedded Photoshop file. "
+                    "Use self.content directly and decode using the "
+                    "appropriate tool."
+                )
+        else:
+            return self._embedded_file
+
+    @embedded_file.setter
+    def embedded_file(self, value):
+        if value is None:
+            self._embedded_file = value
+        else:
+            from . import core
+            if value is not None and not isinstance(value, core.PsdFile):
+                raise TypeError(
+                    "embedded_file must be a PsdFile instance or None"
+                )
+            self._embedded_file = value
+            self._content = None
+
+    @classmethod
+    @util.trace_read
+    def read(cls, fd):
+        entry_start = fd.tell()
+        entry_length = util.read_value(fd, 'Q')
+        link_type = fd.read(4)
+        version = util.read_value(fd, 'I')
+        unique_id = util.read_pascal_string(fd)
+        original_file_name = util.read_unicode_string(fd)
+        filetype = fd.read(4)
+        creator = fd.read(4)
+        file_length = util.read_value(fd, 'Q')
+        have_file_open_descriptor = util.read_value(fd, 'B')
+        if have_file_open_descriptor:
+            util.read_value(fd, 'I')
+            actions.Descriptor.read(fd)
+
+        # TODO: Use an embedded file descriptor to avoid reading
+        # whole thing into memory
+        content = fd.read(file_length)
+
+        if version == 5:
+            uuid = util.read_unicode_string(fd)
+        else:
+            uuid = None
+
+        util.log(
+            "link_type: {}, version: {}, unique_id: {}, "
+            "filename: {}, filetype: {}, creator: {}, "
+            "file_length: {}, have_file_open_descriptor: {} "
+            "len(content): {}, content: {}, uuid: {}",
+            link_type, version, unique_id, original_file_name,
+            filetype, creator, file_length, have_file_open_descriptor,
+            len(content), content[:8], uuid
+        )
+
+        fd.seek(entry_start + 8 + entry_length)
+
+        with open("foo.psb", "wb") as fd:
+            fd.write(content)
+
+        return cls(
+            link_type=link_type,
+            version=version,
+            unique_id=unique_id,
+            filename=original_file_name,
+            filetype=filetype,
+            creator=creator,
+            content=content,
+            uuid=uuid
+        )
+
+    @util.trace_write
+    def write(self, fd):
+        content = self.content
+        start = fd.tell()
+        fd.seek(8, 1)
+        fd.write(self.link_type)
+        util.write_value(fd, 'I', self.version)
+        util.write_pascal_string(fd, self.unique_id)
+        util.write_unicode_string(fd, self.filename)
+        fd.write(self.filetype)
+        fd.write(self.creator)
+        util.write_value(fd, 'Q', len(content))
+        util.write_value(fd, 'B', 1)
+        util.write_value(fd, 'I', 16)
+        descr = actions.Descriptor(items=[
+            (b'compInfo', actions.Descriptor(items=[
+                (b'compID', actions.Integer(-1)),
+                (b'originalCompID', actions.Integer(-1))
+                ])
+            )])
+        descr.write(fd)
+        fd.write(content)
+
+        if self.version == 5:
+            util.write_unicode_string(fd, self.uuid)
+        end = fd.tell()
+        fd.seek(start)
+        util.write_value(fd, 'Q', (end - start) - 8)
+        fd.seek(end)
+
+
+class LinkedLayers(TaggedBlock):
+    def __init__(self, layers=None):
+        if layers is None:
+            layers = []
+        self.layers = layers
+
+    _code = b'lnkD'
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @layers.setter
+    def layers(self, value):
+        util.assert_is_list_of(value, LinkedLayer)
+        self._layers = value
+
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        layers = []
+
+        start = fd.tell()
+        end = start + length
+        while fd.tell() < end:
+            layer = LinkedLayer.read(fd)
+            layers.append(layer)
+            pad = -(fd.tell() - start) % 4
+            fd.seek(pad, 1)
+
+        return cls(layers=layers)
+
+    @util.trace_write
+    def write(self, fd, header, padding=1):
+        fd.write(b'8BIM')
+        fd.write(self.code)
+
+        length_pos = fd.tell()
+        if header.version == 2:
+            fd.seek(8, 1)
+        else:
+            fd.seek(4, 1)
+
+        start = fd.tell()
+        for layer in self.layers:
+            layer.write(fd)
+            pad = -(fd.tell() - start) % 4
+            fd.write(b'\0' * pad)
+        end = fd.tell()
+
+        fd.seek(length_pos)
+        if header.version == 2:
+            util.write_value(fd, 'Q', end - start)
+        else:
+            util.write_value(fd, 'I', end - start)
+        fd.seek(end)
+
+
+class LinkedLayers2(LinkedLayers):
+    _code = b'lnk2'
+
+
+class LinkedLayers3(LinkedLayers):
+    _code = b'lnk3'
+
+
+class PlacedLayer(TaggedBlock):
+    def __init__(self,
+                 unique_id=b'',
+                 page_number=1,
+                 total_pages=1,
+                 antialias_policy=16,
+                 placed_layer_type=enums.PlacedLayerType.unknown,
+                 transform=None):
+        self.unique_id = unique_id
+        self.page_number = page_number
+        self.total_pages = total_pages
+        self.antialias_policy = antialias_policy
+        self.placed_layer_type = placed_layer_type
+        if transform is None:
+            transform = [0.0] * 8
+        self.transform = transform
+
+    _code = b'PlLd'
+
+    @property
+    def unique_id(self):
+        return self._unique_id
+
+    @unique_id.setter
+    def unique_id(self, value):
+        if not isinstance(value, six.text_type):
+            raise TypeError("unique_id must be a unicode string")
+        self._unique_id = value
+
+    @property
+    def page_number(self):
+        return self._page_number
+
+    @page_number.setter
+    def page_number(self, value):
+        if not isinstance(value, int) or value < 1:
+            raise ValueError("page_number must be a positive integer")
+        self._page_number = value
+
+    @property
+    def total_pages(self):
+        return self._total_pages
+
+    @total_pages.setter
+    def total_pages(self, value):
+        if not isinstance(value, int) or value < 1:
+            raise ValueError("total_pages must be a positive integer")
+        self._total_pages = value
+
+    @property
+    def antialias_policy(self):
+        return self._antialias_policy
+
+    @antialias_policy.setter
+    def antialias_policy(self, value):
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("antialias_policy must be a non-negative integer")
+        self._antialias_policy = value
+
+    @property
+    def placed_layer_type(self):
+        return self._placed_layer_type
+
+    @placed_layer_type.setter
+    def placed_layer_type(self, value):
+        if value not in list(enums.PlacedLayerType):
+            raise ValueError("Invalid placed layer type.")
+        self._placed_layer_type = value
+
+    @property
+    def transform(self):
+        return self._transform
+
+    @transform.setter
+    def transform(self, value):
+        util.assert_is_list_of(value, float)
+        if len(value) != 8:
+            raise ValueError("transform must have 8 values")
+        self._transform = value
+
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        start = fd.tell()
+        type = fd.read(4)
+        if type != b'plcL':
+            raise ValueError(
+                "Invalid type '{}' for placed layer".format(type)
+            )
+        version = util.read_value(fd, 'I')
+        if version != 3:
+            raise ValueError(
+                "Invalid version '{}' for placed layer".format(version)
+            )
+        unique_id = util.read_pascal_string(fd)
+        page_number = util.read_value(fd, 'I')
+        total_pages = util.read_value(fd, 'I')
+        antialias_policy = util.read_value(fd, 'I')
+        placed_layer_type = util.read_value(fd, 'I')
+        transform = list(struct.unpack('>dddddddd', fd.read(8 * 8)))
+        fd.seek(start + length)
+
+        util.log(
+            "unique_id: {}, page_number: {}, total_pages: {}, "
+            "antialias_policy: {}, placed_layer_type: {}, "
+            "transform: {}",
+            unique_id, page_number, total_pages, antialias_policy,
+            placed_layer_type, transform
+        )
+
+        return cls(
+            unique_id=unique_id,
+            page_number=page_number,
+            total_pages=total_pages,
+            antialias_policy=antialias_policy,
+            placed_layer_type=placed_layer_type,
+            transform=transform
+        )
+
+    def data_length(self, header):
+        return (4 + 4 + util.pascal_string_length(self.unique_id) +
+                4 + 4 + 4 + 4 + 8*8 + 4 + 4 + 4)
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        fd.write(b'plcL')
+        util.write_value(fd, 'I', 3)
+        util.write_pascal_string(fd, self.unique_id)
+        util.write_value(fd, 'I', self.page_number)
+        util.write_value(fd, 'I', self.total_pages)
+        util.write_value(fd, 'I', self.antialias_policy)
+        util.write_value(fd, 'I', self.placed_layer_type)
+        fd.write(struct.pack('>dddddddd', *self.transform))
+        util.write_value(fd, 'I', 0)
+        util.write_value(fd, 'I', 0)
+        util.write_value(fd, 'I', 0)
+
+
+class PlacedLayerData(TaggedBlock):
+    def __init__(self, descr=None):
+        self.descr = descr
+
+    _code = b'SoLd'
+
+    @property
+    def descr(self):
+        return self._descr
+
+    @descr.setter
+    def descr(self, value):
+        if not isinstance(value, actions.OSType):
+            raise TypeError("descr must be an OSType instance")
+        self._descr = value
+
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        start = fd.tell()
+
+        identifier = fd.read(4)
+        if identifier != b'soLD':
+            raise ValueError(
+                "Invalid identifier {} for placed layer data".format(
+                    identifier)
+            )
+
+        version = util.read_value(fd, 'I')
+        if version != 4:
+            raise ValueError(
+                "Invalid version {} for placed layer data".format(
+                    version)
+            )
+
+        descriptor_version = util.read_value(fd, 'I')
+        if descriptor_version != 16:
+            raise ValueError(
+                "Invalid descriptor version {} for placed layer data".format(
+                    descriptor_version)
+            )
+
+        descr = actions.Descriptor.read(fd)
+
+        fd.seek(-(fd.tell() - start) % 4, 1)
+
+        return cls(descr=descr)
+
+    def data_length(self, header):
+        temp_fd = io.BytesIO()
+        self.descr.write(temp_fd)
+        length = temp_fd.tell()
+        return 12 + length + (-length % 4)
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        start = fd.tell()
+        fd.write(b'soLD')
+        util.write_value(fd, 'I', 4)
+        util.write_value(fd, 'I', 16)
+        self.descr.write(fd)
+        fd.write(b'\0' * (-(fd.tell() - start) % 4))

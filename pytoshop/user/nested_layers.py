@@ -8,12 +8,14 @@ Convert a PSD file to/from nested layers.
 
 from collections import OrderedDict
 import sys
+import uuid
 
 
 import numpy as np
 import six
 
 
+from .. import actions
 from .. import core
 from .. import enums
 from .. import image_resources
@@ -99,8 +101,14 @@ class Layer(object):
         if not isinstance(value, dict):
             raise TypeError("metadata must be a dict from bytes to bytes")
         for k, v in value.items():
-            if not isinstance(k, bytes) or not isinstance(v, bytes):
-                raise TypeError("metadata must be a dict from bytes to bytes")
+            if (not isinstance(k, bytes) or
+                not isinstance(v, tuple) or
+                len(v) != 2 or
+                not isinstance(v[0], bool) or
+                not isinstance(v[1], bytes)):
+                raise TypeError(
+                    "metadata must be a dict from bytes to (bool, bytes)"
+                )
         self._metadata = value
 
 
@@ -259,6 +267,35 @@ class Image(Layer):
         self._channels = coerce(value)
 
 
+class LinkedGroup(Image, Group):
+    def __init__(self,
+                 name='',
+                 visible=True,
+                 opacity=255,
+                 group_id=0,
+                 blend_mode=enums.BlendMode.pass_through,
+                 layers=None,
+                 metadata=None,
+                 top=0, left=0, bottom=None, right=None,
+                 channels={}):
+        self.name = name
+        self.visible = visible
+        self.opacity = opacity
+        self.group_id = group_id
+        self.blend_mode = blend_mode
+        if layers is None:
+            layers = []
+        self.layers = layers
+        if metadata is None:
+            metadata = {}
+        self.metadata = metadata
+        self.top = top
+        self.left = left
+        self.bottom = bottom
+        self.right = right
+        self.channels = channels
+
+
 def _iterate_all_images(layers):
     """
     Iterate over all `Image` instances in a hierarchy of `Layer`
@@ -280,13 +317,18 @@ def pprint_layers(layers, indent=0):
     Pretty-print a hierarchy of `Layer` instances.
     """
     for layer in layers:
-        if isinstance(layer, Group):
-            print(('  ' * indent) + '< {}'.format(layer.name))
+        if isinstance(layer, LinkedGroup):
+            print(('  ' * indent) + '< linked {} ({}, {}, {}, {}) {}'.format(
+                layer.name, layer.top, layer.left, layer.bottom, layer.right, layer.group_id))
+            pprint_layers(layer.layers, indent+1)
+            print(('  ' * indent) + '>')
+        elif isinstance(layer, Group):
+            print(('  ' * indent) + '< {} {}'.format(layer.name, layer.group_id))
             pprint_layers(layer.layers, indent+1)
             print(('  ' * indent) + '>')
         elif isinstance(layer, Image):
-            print(('  ' * indent) + '< {} ({}, {}, {}, {}) >'.format(
-                layer.name, layer.top, layer.left, layer.bottom, layer.right))
+            print(('  ' * indent) + '< {} ({}, {}, {}, {}) {}>'.format(
+                layer.name, layer.top, layer.left, layer.bottom, layer.right, layer.group_id))
 
 
 def psd_to_nested_layers(psdfile):
@@ -335,10 +377,45 @@ def psd_to_nested_layers(psdfile):
         else:
             metadata = metadata.datas
         extra_args = {}
-        if group_ids is not None:
+        if group_ids is not None and index < len(group_ids):
             extra_args['group_id'] = group_ids[index]
+        placed_layer = blocks.get(b'PlLd', None)
 
-        if divider is not None:
+        if placed_layer:
+            unique_id = placed_layer.unique_id
+            addl_layer_info = (
+                psdfile.layer_and_mask_info.additional_layer_info_map
+            )
+            for key in (b'lnkD', b'lnk2', b'lnk3'):
+                if key in addl_layer_info:
+                    linked_layers = addl_layer_info[key]
+                    break
+            else:
+                continue
+            for linked_layer in linked_layers.layers:
+                if linked_layer.unique_id == unique_id:
+                    with open("remade.psb", "wb") as fd:
+                        fd.write(linked_layer.content)
+                    sub_psd = linked_layer.embedded_file
+                    layers = psd_to_nested_layers(sub_psd)
+                    group = LinkedGroup(
+                        name=name,
+                        blend_mode=blend_mode,
+                        visible=visible,
+                        opacity=opacity,
+                        metadata=metadata,
+                        layers=layers,
+                        top=layer.top,
+                        left=layer.left,
+                        bottom=layer.bottom,
+                        right=layer.right,
+                        channels=layer.channels,
+                        **extra_args
+                    )
+                    current_group.layers.append(group)
+                    break
+
+        elif divider is not None:
             if divider.type in (enums.SectionDividerSetting.closed,
                                 enums.SectionDividerSetting.open):
                 # group begins
@@ -399,7 +476,167 @@ def psd_to_nested_layers(psdfile):
     return root.layers
 
 
-def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
+def _get_layer_channels(layer, compression, vector_mask):
+    channels = OrderedDict()
+    for id, im in layer.channels.items():
+        if isinstance(im, mlayers.ChannelImageData):
+            channels[id] = im
+        else:
+            channels[id] = mlayers.ChannelImageData(
+                image=im, compression=compression)
+
+    blocks = []
+    if vector_mask:
+        blocks.append(
+            tagged_block.VectorMask(
+                path_resource=path.PathResource.from_rect(
+                    layer.top + 5, layer.left + 5,
+                    layer.bottom - 5, layer.right - 5
+                )
+            )
+        )
+    else:
+        if enums.ChannelId.transparency not in channels:
+            channels[enums.ChannelId.transparency] = mlayers.ChannelImageData(
+                image=-1, compression=compression
+            )
+
+    return channels, blocks
+
+
+def _make_placed_layers(file_uuid):
+    placed_id = hex(eval('0x' + file_uuid[:8]) - 1)[2:] + file_uuid[8:]
+    trans = [2887.0, 2.0, 22753.0, 2.0, 22753.0, 4606.0, 2887.0, 4606.0]
+
+    return [
+        tagged_block.PlacedLayer(
+            unique_id=file_uuid,
+            placed_layer_type=enums.PlacedLayerType.raster,
+            transform=trans
+            # TODO: I think transform needs to encompass the
+            # size of all child layers
+        ),
+        tagged_block.PlacedLayerData(
+            descr=actions.Descriptor(
+                items=[
+                    (b'Idnt', actions.String(file_uuid)),
+                    (b'placed', actions.String(placed_id)),
+                    (b'PgNm', actions.Integer(1)),
+                    (b'totalPages', actions.Integer(1)),
+                    (b'Crop', actions.Integer(1)),
+                    (b'frameStep', actions.Descriptor(
+                        items=[
+                            (b'numerator', actions.Integer(0)),
+                            (b'denominator', actions.Integer(600))])),
+                    (b'duration', actions.Descriptor(
+                        items=[
+                            (b'numerator', actions.Integer(0)),
+                            (b'denominator', actions.Integer(600))])),
+                    (b'frameCount', actions.Integer(1)),
+                    (b'Annt', actions.Integer(16)),
+                    (b'Type', actions.Integer(2)),
+                    (b'Trnf', actions.List([
+                        actions.Double(trans[0]),
+                        actions.Double(trans[1]),
+                        actions.Double(trans[2]),
+                        actions.Double(trans[3]),
+                        actions.Double(trans[4]),
+                        actions.Double(trans[5]),
+                        actions.Double(trans[6]),
+                        actions.Double(trans[7])])),
+                    (b'nonAffineTransform', actions.List([
+                        actions.Double(trans[0]),
+                        actions.Double(trans[1]),
+                        actions.Double(trans[2]),
+                        actions.Double(trans[3]),
+                        actions.Double(trans[4]),
+                        actions.Double(trans[5]),
+                        actions.Double(trans[6]),
+                        actions.Double(trans[7])])),
+                    (b'warp', actions.Descriptor(class_id=b'warp', items=[
+                        (b'warpStyle', actions.Enumerated(
+                            b'warpStyle', b'warpNone')),
+                        (b'warpValue', actions.Double(0.0)),
+                        (b'warpPerspective', actions.Double(0.0)),
+                        (b'warpPerspectiveOther', actions.Double(0.0)),
+                        (b'warpRotate', actions.Enumerated(b'Ornt', b'Hrzn')),
+                        (b'bounds', actions.Descriptor(
+                            class_id=b'Rctn', items=[
+                                (b'Top ', actions.UnitFloat(b'#Pxl', trans[1])),
+                                (b'Left', actions.UnitFloat(b'#Pxl', trans[0])),
+                                (b'Btom', actions.UnitFloat(b'#Pxl', trans[5])),
+                                (b'Rght', actions.UnitFloat(b'#Pxl', trans[2]))])),
+                        (b'uOrder', actions.Integer(4)),
+                        (b'vOrder', actions.Integer(4))])),
+                    (b'Sz  ', actions.Descriptor(items=[
+                        (b'Wdth', actions.Double(19866.0)),
+                        (b'Hght', actions.Double(4604.0))
+                        ], class_id=b'Pnt ')),
+                    (b'Rslt', actions.UnitFloat(b'#Rsl', 72.0)),
+                    (b'comp', actions.Integer(-1)),
+                    (b'compInfo', actions.Descriptor(items=[
+                        (b'compID', actions.Integer(-1)),
+                        (b'originalCompID', actions.Integer(-1))
+                        ]))
+                    ]
+            )
+        )
+    ]
+
+
+def _flatten_linked_group(
+        layer, flat_layers, group_ids, linked_files, compression,
+        vector_mask, version, color_mode):
+    file_uuid = str(uuid.uuid1())
+
+    channels, blocks = _get_layer_channels(
+        layer, compression, vector_mask
+    )
+
+    blocks += [
+        tagged_block.UnicodeLayerName(name=layer.name),
+        # tagged_block.LayerId(id=len(flat_layers)),
+    ] + _make_placed_layers(file_uuid)
+
+    if len(layer.metadata):
+        blocks.append(
+            tagged_block.MetadataSetting(layer.metadata)
+        )
+
+    flat_layers.append(
+        mlayers.LayerRecord(
+            top=layer.top,
+            left=layer.left,
+            bottom=layer.bottom,
+            right=layer.right,
+            name=layer.name,
+            blend_mode=layer.blend_mode,
+            opacity=layer.opacity,
+            visible=layer.visible,
+            channels=channels,
+            blocks=blocks
+        )
+    )
+
+    group_ids.append(0)
+
+    linked_files.append(
+        tagged_block.LinkedLayer(
+            unique_id=file_uuid,
+            filename=layer.name + '.psb',
+            embedded_file=nested_layers_to_psd(
+                layer.layers,
+                color_mode,
+                version,
+                compression,
+                vector_mask=vector_mask
+            )
+        )
+    )
+
+
+def _flatten_group(layer, flat_layers, group_ids, linked_files, compression,
+                   vector_mask, version, color_mode):
     if layer.closed:
         divider_type = enums.SectionDividerSetting.closed
     else:
@@ -409,7 +646,7 @@ def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
 
     blocks = [
         tagged_block.UnicodeLayerName(name=layer.name),
-        tagged_block.SectionDividerSetting(type=divider_type),
+        tagged_block.SectionDividerSetting(type=divider_type, key=b'pass'),
         tagged_block.LayerId(id=len(flat_layers))
     ]
 
@@ -432,7 +669,9 @@ def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
     group_ids.append(layer.group_id)
 
     _flatten_layers(
-        layer.layers, flat_layers, group_ids, compression, vector_mask)
+        layer.layers, flat_layers, group_ids, linked_files,
+        compression, vector_mask, version, color_mode
+    )
 
     flat_layers.append(
         mlayers.LayerRecord(
@@ -503,11 +742,18 @@ def _flatten_image(layer, flat_layers, group_ids, compression, vector_mask):
     group_ids.append(layer.group_id)
 
 
-def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
+def _flatten_layers(layers, flat_layers, group_ids, linked_files,
+                    compression, vector_mask, version, color_mode):
     for layer in layers:
-        if isinstance(layer, Group):
+        if isinstance(layer, LinkedGroup):
+            _flatten_linked_group(
+                layer, flat_layers, group_ids, linked_files,
+                compression, vector_mask, version, color_mode)
+
+        elif isinstance(layer, Group):
             _flatten_group(
-                layer, flat_layers, group_ids, compression, vector_mask
+                layer, flat_layers, group_ids, linked_files,
+                compression, vector_mask, version, color_mode
             )
 
         elif isinstance(layer, Image):
@@ -515,7 +761,7 @@ def _flatten_layers(layers, flat_layers, group_ids, compression, vector_mask):
                 layer, flat_layers, group_ids, compression, vector_mask
             )
 
-    return flat_layers, group_ids
+    return flat_layers, group_ids, linked_files
 
 
 def _adjust_positions(layers):
@@ -664,11 +910,26 @@ def nested_layers_to_psd(
     else:
         width, height = size
 
-    flat_layers, group_ids = _flatten_layers(
-        layers, [], [], compression, vector_mask)
+    flat_layers, group_ids, linked_files = _flatten_layers(
+        layers, [], [], [], compression, vector_mask, version, color_mode)
 
     flat_layers = flat_layers[::-1]
     group_ids = group_ids[::-1]
+
+    addl_layer_info = []
+    if len(linked_files):
+        addl_layer_info.append(
+            tagged_block.LinkedLayers2(
+                layers=linked_files
+            )
+        )
+        addl_layer_info.append(
+            tagged_block.GenericTaggedBlock(b'lnkE', b'')
+        )
+        addl_layer_info.append(
+            tagged_block.GenericTaggedBlock(
+                b'FMsk', b'\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x002'
+            ))
 
     f = core.PsdFile(
         version=version,
@@ -680,7 +941,8 @@ def nested_layers_to_psd(
         layer_and_mask_info=mlayers.LayerAndMaskInfo(
             layer_info=mlayers.LayerInfo(
                 layer_records=flat_layers
-            )
+            ),
+            additional_layer_info=addl_layer_info
         ),
         image_resources=image_resources.ImageResources(
             blocks=[
