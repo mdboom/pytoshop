@@ -424,7 +424,8 @@ def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
             blend_mode=layer.blend_mode,
             opacity=layer.opacity,
             visible=layer.visible,
-            blocks=blocks
+            blocks=blocks,
+            pixel_data_irrelevant=True
         )
     )
 
@@ -439,7 +440,8 @@ def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
                 tagged_block.SectionDividerSetting(
                     type=enums.SectionDividerSetting.bounding),
                 tagged_block.LayerNameSource(id=name_source)
-            ]
+            ],
+            pixel_data_irrelevant=True
         )
     )
 

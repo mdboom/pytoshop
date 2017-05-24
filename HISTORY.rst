@@ -12,6 +12,8 @@ Bugfixes:
 - The main canvas image will use the specified compression algorithm
   when using nested_layers_to_psd.
 
+- Non-image layers correctly set "pixel_data_is_irrelevant" flag.
+
 0.4.0 (2017-05-12)
 ------------------
 
