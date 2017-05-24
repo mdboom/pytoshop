@@ -160,6 +160,7 @@ class GenericTaggedBlock(TaggedBlock):
     @util.trace_read
     def read_data(cls, fd, code, length, header):
         data = fd.read(length)
+        util.log('data: {}', data)
         return cls(code=code, data=data)
 
     def data_length(self, header):
@@ -228,6 +229,7 @@ class LayerId(TaggedBlock):
     @util.trace_read
     def read_data(cls, fd, code, length, header):
         id = util.read_value(fd, 'I')
+        util.log("id: {}", id)
         return cls(id=id)
 
     def data_length(self, header):
@@ -260,6 +262,7 @@ class LayerNameSource(TaggedBlock):
     @util.trace_read
     def read_data(cls, fd, code, length, header):
         id = util.read_value(fd, 'I')
+        util.log("id: {}", id)
         return cls(id=id)
 
     def data_length(self, header):
@@ -330,6 +333,11 @@ class _SectionDividerSetting(TaggedBlock):
             key = fd.read(4)
             if fd.tell() < end:
                 subtype = bool(util.read_value(fd, 'I'))
+
+        util.log(
+            "type: {}, key: {}, subtype: {}",
+            type, key, subtype
+        )
 
         return cls(type=type, key=key, subtype=subtype)
 
