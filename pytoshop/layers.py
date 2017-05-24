@@ -903,7 +903,7 @@ class LayerRecord(object):
 
         name = util.read_pascal_string(fd, 4)
 
-        util.log("name: '{}'", name)
+        util.log("name: {}", name)
 
         blocks = []
         while fd.tell() < end:
