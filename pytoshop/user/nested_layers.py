@@ -681,9 +681,12 @@ def nested_layers_to_psd(
             )
         ),
         image_resources=image_resources.ImageResources(
-            blocks=[image_resources.LayersGroupInfo(
-                group_ids=group_ids)]
-        )
+            blocks=[
+                image_resources.LayersGroupInfo(
+                    group_ids=group_ids)
+            ]
+        ),
+        compression=compression
     )
 
     return f

@@ -7,6 +7,11 @@ Minor improvements:
 - Parse multiple values in a struct together when possible.  This has
   a modest speed improvement.
 
+Bugfixes:
+
+- The main canvas image will use the specified compression algorithm
+  when using nested_layers_to_psd.
+
 0.4.0 (2017-05-12)
 ------------------
 

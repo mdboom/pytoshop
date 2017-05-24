@@ -182,7 +182,8 @@ class PsdFile(Header):
                  color_mode_data=None,
                  image_resources=None,
                  layer_and_mask_info=None,
-                 image_data=None):
+                 image_data=None,
+                 compression=enums.Compression.raw):
         Header.__init__(
             self,
             version=version,
@@ -203,7 +204,7 @@ class PsdFile(Header):
             layer_and_mask_info = layers.LayerAndMaskInfo()
         self.layer_and_mask_info = layer_and_mask_info
         if image_data is None:
-            image_data = m_image_data.ImageData()
+            image_data = m_image_data.ImageData(compression=compression)
         self.image_data = image_data
 
     @property
