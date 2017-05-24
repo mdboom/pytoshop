@@ -106,7 +106,7 @@ def read_pascal_string(fd, padding=1):
     length = read_value(fd, 'B')
     if length == 0:
         fd.seek(padding - 1, 1)
-        return b''
+        return ''
 
     result = fd.read(length)
 
