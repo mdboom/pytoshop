@@ -11,7 +11,6 @@ from __future__ import unicode_literals, absolute_import
 
 import collections
 import os
-import struct
 
 
 import numpy as np

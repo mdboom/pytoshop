@@ -9,9 +9,6 @@ The core objects, including the `PsdFile` and its `Header`.
 from __future__ import unicode_literals, absolute_import
 
 
-import struct
-
-
 from . import color_mode as m_color_mode
 from . import docs
 from . import enums
