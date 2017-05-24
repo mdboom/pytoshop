@@ -52,7 +52,7 @@ def read_value(fd, fmt, endian='>'):
         return result
 
 
-def write_value(fd, fmt, *value, endian='>'):
+def write_value(fd, fmt, *value, **kwargs):
     """
     Write a single binary value to a file-like object.
 
@@ -72,6 +72,7 @@ def write_value(fd, fmt, *value, endian='>'):
     endian : str
         The endianness. Must be ``>`` or ``<``.  Default: ``>``.
     """
+    endian = kwargs.get('endian', '>')
     fmt = endian + fmt
     fd.write(struct.pack(fmt, *value))
 
