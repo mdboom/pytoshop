@@ -9,6 +9,8 @@ Minor improvements:
 
 Bugfixes:
 
+- Fix pip install [#1]
+
 - The main canvas image will use the specified compression algorithm
   when using nested_layers_to_psd.
 
