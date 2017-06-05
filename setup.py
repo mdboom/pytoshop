@@ -3,7 +3,6 @@
 
 from setuptools import setup
 from setuptools.extension import Extension
-from Cython.Build import cythonize
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -21,12 +20,18 @@ test_requirements = [
 ]
 
 
-extensions = [
-    Extension(
-        "pytoshop.packbits",
-        ["pytoshop/packbits.pyx"]
-    )
-]
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    extensions = []
+else:
+    extensions = cythonize([
+        Extension(
+            "pytoshop.packbits",
+            ["pytoshop/packbits.pyx"]
+        )
+    ])
+
 
 setup(
     name='pytoshop',
@@ -59,5 +64,5 @@ setup(
     ],
     test_suite='tests',
     tests_require=test_requirements,
-    ext_modules=cythonize(extensions)
+    ext_modules=extensions
 )
