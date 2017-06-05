@@ -2,6 +2,9 @@
 History
 =======
 
+0.4.1 (2017-06-05)
+------------------
+
 Minor improvements:
 
 - Parse multiple values in a struct together when possible.  This has
