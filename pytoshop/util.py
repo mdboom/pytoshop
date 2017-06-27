@@ -135,6 +135,10 @@ def write_pascal_string(fd, value, padding=1):
     value = value.encode('utf8')
 
     length = len(value)
+    if length > 255:
+        value = value[:255]
+        length = 255
+
     write_value(fd, 'B', len(value))
     if len(value) == 0:
         fd.write(b'\0' * (padding - 1))
