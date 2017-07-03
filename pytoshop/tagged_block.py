@@ -240,6 +240,39 @@ class LayerId(TaggedBlock):
         util.write_value(fd, 'I', self.id)
 
 
+class LayerColor(TaggedBlock):
+    def __init__(self, color=0):
+        self.color = color
+
+    _code = b'lclr'
+
+    @property
+    def color(self):
+        "Color"
+        return self._color
+
+    @color.setter
+    def color(self, value):
+        if (not isinstance(value, int) or
+                value < 0 or value > 7):
+            raise ValueError("color must be in range 0-7")
+        self._color = value
+
+    @classmethod
+    @util.trace_read
+    def read_data(cls, fd, code, length, header):
+        color, _, _, _ = util.read_value(fd, 'HHHH')
+        util.log("color: {}", color)
+        return cls(color=color)
+
+    def data_length(self, header):
+        return 8
+
+    @util.trace_write
+    def write_data(self, fd, header):
+        util.write_value(fd, 'HHHH', self.color, 0, 0, 0)
+
+
 class LayerNameSource(TaggedBlock):
     def __init__(self, id=0):
         self.id = id

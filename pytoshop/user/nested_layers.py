@@ -103,6 +103,20 @@ class Layer(object):
                 raise TypeError("metadata must be a dict from bytes to bytes")
         self._metadata = value
 
+    @property
+    def layer_color(self):
+        "layer color (as it appears in the layer list)"
+        return self._layer_color
+
+    @layer_color.setter
+    def layer_color(self, value):
+        if (not isinstance(value, int) or
+            value < 0 or value > 7):
+            raise ValueError(
+                "Layer color must be in range 0-7"
+            )
+        self._layer_color = value
+
 
 class Group(Layer):
     """
@@ -116,7 +130,8 @@ class Group(Layer):
                  blend_mode=enums.BlendMode.pass_through,
                  layers=None,
                  closed=True,
-                 metadata=None):
+                 metadata=None,
+                 layer_color=0):
         self.name = name
         self.visible = visible
         self.opacity = opacity
@@ -129,6 +144,7 @@ class Group(Layer):
         if metadata is None:
             metadata = {}
         self.metadata = metadata
+        self.layer_color = layer_color
 
     @property
     def layers(self):
@@ -162,7 +178,8 @@ class Image(Layer):
                  blend_mode=enums.BlendMode.normal,
                  top=0, left=0, bottom=None, right=None,
                  channels={},
-                 metadata=None):
+                 metadata=None,
+                 layer_color=0):
         self.name = name
         self.visible = visible
         self.opacity = opacity
@@ -176,6 +193,7 @@ class Image(Layer):
         if metadata is None:
             metadata = {}
         self.metadata = metadata
+        self.layer_color = layer_color
 
     @property
     def top(self):
@@ -337,6 +355,9 @@ def psd_to_nested_layers(psdfile):
         extra_args = {}
         if group_ids is not None:
             extra_args['group_id'] = group_ids[index]
+        layer_color = blocks.get(b'lclr', 0)
+        if layer_color != 0:
+            layer_color = layer_color.color
 
         if divider is not None:
             if divider.type in (enums.SectionDividerSetting.closed,
@@ -350,6 +371,7 @@ def psd_to_nested_layers(psdfile):
                     visible=visible,
                     opacity=opacity,
                     metadata=metadata,
+                    layer_color=layer_color,
                     **extra_args
                 )
                 group_stack.append(group)
@@ -392,6 +414,7 @@ def psd_to_nested_layers(psdfile):
                 visible=visible,
                 opacity=opacity,
                 metadata=metadata,
+                layer_color=layer_color,
                 **extra_args
             )
             current_group.layers.append(layer)
@@ -412,6 +435,11 @@ def _flatten_group(layer, flat_layers, group_ids, compression, vector_mask):
         tagged_block.SectionDividerSetting(type=divider_type),
         tagged_block.LayerId(id=len(flat_layers))
     ]
+
+    if layer.layer_color != 0:
+        blocks.append(
+            tagged_block.LayerColor(layer.layer_color)
+        )
 
     if len(layer.metadata):
         blocks.append(
@@ -462,8 +490,13 @@ def _flatten_image(layer, flat_layers, group_ids, compression, vector_mask):
 
     blocks = [
         tagged_block.UnicodeLayerName(name=layer.name),
-        tagged_block.LayerId(id=len(flat_layers))
+        tagged_block.LayerId(id=len(flat_layers)),
     ]
+
+    if layer.layer_color != 0:
+        blocks.append(
+            tagged_block.LayerColor(layer.layer_color)
+        )
 
     if vector_mask:
         blocks.append(
