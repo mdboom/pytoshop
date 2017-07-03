@@ -10,6 +10,10 @@ Minor improvements:
 - The color assigned to a layer (displayed in the layer list) is now
   available in the ``nested_layers`` API.
 
+Bugfixes:
+
+- Fix crash in ``GuideResourceBlock``.
+
 0.4.1 (2017-06-05)
 ------------------
 

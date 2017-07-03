@@ -569,6 +569,9 @@ class GuideResourceBlock(object):
     def write(self, fd, header):
         util.write_value(fd, 'IB', self.location, self.direction)
 
+    def data_length(self, header):
+        return 5
+
 
 class GridAndGuidesInfo(ImageResourceBlock):
     """
