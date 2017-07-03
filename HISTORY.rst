@@ -31,7 +31,7 @@ Bugfixes:
 
 - Non-image layers correctly set "pixel_data_is_irrelevant" flag.
 
-0.4.1 (2017-05-12)
+0.4.0 (2017-05-12)
 ------------------
 
 Improvements:
