@@ -111,7 +111,7 @@ class Layer(object):
     @layer_color.setter
     def layer_color(self, value):
         if (not isinstance(value, int) or
-            value < 0 or value > 7):
+                value < 0 or value > 7):
             raise ValueError(
                 "Layer color must be in range 0-7"
             )
