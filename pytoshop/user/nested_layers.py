@@ -327,7 +327,9 @@ class Image(Layer):
             raise ValueError(
                 "color_mode must be specified to use set_channel"
             )
-        return util.set_channel(color, channel, self._color_mode, self._channels)
+        return util.set_channel(
+            color, channel, self._color_mode, self._channels
+        )
 
 
 def _iterate_all_images(layers):

@@ -784,7 +784,9 @@ class LayerRecord(object):
 
         channel : ChannelImageData
         """
-        return util.set_channel(color, channel, self._color_mode, self._channels)
+        return util.set_channel(
+            color, channel, self._color_mode, self._channels
+        )
 
     @property
     def blocks(self):
