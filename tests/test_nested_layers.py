@@ -144,6 +144,33 @@ def test_mismatched_width():
             layers, enums.ColorMode.grayscale)
 
 
+def test_mismatched_color_mode():
+    from pytoshop.user.nested_layers import Group, Image
+
+    img1 = np.empty((100, 80), dtype=np.uint8)
+
+    im = Image(channels={0: img1},
+               top=0, left=0, bottom=100, right=80,
+               color_mode=enums.ColorMode.rgb)
+
+    with pytest.raises(ValueError):
+        im.get_channel(enums.ColorChannel.gray)
+    im.get_channel(enums.ColorChannel.red)
+    with pytest.raises(KeyError):
+        im.get_channel(enums.ColorChannel.blue)
+
+    layers = [
+        Group(
+            layers=[
+                im
+            ])
+    ]
+
+    with pytest.raises(ValueError):
+        nested_layers.nested_layers_to_psd(
+            layers, enums.ColorMode.grayscale)
+
+
 def test_no_images():
     from pytoshop.user.nested_layers import Group
 

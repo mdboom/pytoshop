@@ -2,7 +2,15 @@
 History
 =======
 
-0.5.0 (2017-07-03 13:51:39.549640)
+MASTER
+------
+
+Minor improvements:
+
+- Make it easier to get the choose the right channel, given the
+  current color mode.
+
+0.5.0 (2017-07-03)
 ------
 
 Minor improvements:

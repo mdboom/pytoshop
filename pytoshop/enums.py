@@ -204,6 +204,49 @@ class ChannelId(enum.IntEnum):
     real_user_layer_mask = -3
 
 
+class ColorChannel(enum.IntEnum):
+    """
+    Color channel names, with unique values so we can check that they
+    apply to the expected color mode.
+    """
+    bitmap = 0
+    gray = 1
+    default = 2
+    red = 3
+    green = 4
+    blue = 5
+    cyan = 6
+    magenta = 7
+    yellow = 8
+    black = 9
+    L = 10
+    a = 11
+    b = 12
+    transparency = -1
+    user_layer_mask = -2
+    real_user_layer_mask = -3
+
+
+ColorChannelMapping = {
+    ColorChannel.bitmap: (ColorMode.bitmap, ChannelId.bitmap),
+    ColorChannel.gray: (ColorMode.grayscale, ChannelId.gray),
+    ColorChannel.default: (None, ChannelId.default),
+    ColorChannel.red: (ColorMode.rgb, ChannelId.red),
+    ColorChannel.green: (ColorMode.rgb, ChannelId.green),
+    ColorChannel.blue: (ColorMode.rgb, ChannelId.blue),
+    ColorChannel.cyan: (ColorMode.cmyk, ChannelId.cyan),
+    ColorChannel.magenta: (ColorMode.cmyk, ChannelId.magenta),
+    ColorChannel.yellow: (ColorMode.cmyk, ChannelId.yellow),
+    ColorChannel.black: (ColorMode.cmyk, ChannelId.black),
+    ColorChannel.L: (ColorMode.lab, ChannelId.L),
+    ColorChannel.a: (ColorMode.lab, ChannelId.a),
+    ColorChannel.b: (ColorMode.lab, ChannelId.b),
+    ColorChannel.transparency: (None, ChannelId.transparency),
+    ColorChannel.user_layer_mask: (None, ChannelId.user_layer_mask),
+    ColorChannel.real_user_layer_mask: (None, ChannelId.real_user_layer_mask)
+}
+
+
 class SectionDividerSetting(enum.IntEnum):
     """
     Section divider setting.

@@ -179,7 +179,8 @@ class Image(Layer):
                  top=0, left=0, bottom=None, right=None,
                  channels={},
                  metadata=None,
-                 layer_color=0):
+                 layer_color=0,
+                 color_mode=None):
         self.name = name
         self.visible = visible
         self.opacity = opacity
@@ -194,6 +195,7 @@ class Image(Layer):
             metadata = {}
         self.metadata = metadata
         self.layer_color = layer_color
+        self.color_mode = color_mode
 
     @property
     def top(self):
@@ -246,12 +248,27 @@ class Image(Layer):
         self._right = value
 
     @property
+    def color_mode(self):
+        """
+        The color mode of the image.
+        """
+        return self._color_mode
+
+    @color_mode.setter
+    def color_mode(self, value):
+        if value is not None and value not in list(enums.ColorMode):
+            raise ValueError("Invalid color mode")
+        self._color_mode = value
+
+    @property
     def channels(self):
         """
         The channel image data. May be one of the following:
         - A dictionary from `enums.ChannelId` to 2-D numpy arrays.
         - A 3-D numpy array of the shape (num_channels, height, width)
         - A list of numpy arrays where each is a channel.
+
+        It is better to use `get_channel` and `set_channel` to
         """
         return self._channels
 
@@ -275,6 +292,42 @@ class Image(Layer):
             return {0: value}
 
         self._channels = coerce(value)
+
+    def get_channel(self, color):
+        """
+        Get a channel for a given color.  Raises an error if the color space
+        doesn't have the given color.
+
+        Parameters
+        ----------
+        color : enums.ColorChannel
+
+        Returns
+        -------
+        channel : 2-D numpy array
+        """
+        if self._color_mode is None:
+            raise ValueError(
+                "color_mode must be specified to use get_channel"
+            )
+        return util.get_channel(color, self._color_mode, self._channels)
+
+    def set_channel(self, color, channel):
+        """
+        Get a channel for a given color.  Raises an error if the color space
+        doesn't have the given color.
+
+        Parameters
+        ----------
+        color : enums.ColorChannel
+
+        channel : 2-D numpy array
+        """
+        if self._color_mode is None:
+            raise ValueError(
+                "color_mode must be specified to use set_channel"
+            )
+        return util.set_channel(color, channel, self._color_mode, self._channels)
 
 
 def _iterate_all_images(layers):
@@ -415,6 +468,7 @@ def psd_to_nested_layers(psdfile):
                 opacity=opacity,
                 metadata=metadata,
                 layer_color=layer_color,
+                color_mode=psdfile.color_mode,
                 **extra_args
             )
             current_group.layers.append(layer)
@@ -577,9 +631,12 @@ def _adjust_positions(layers):
     return width, height
 
 
-def _determine_channels_and_depth(layers, depth):
+def _determine_channels_and_depth(layers, depth, color_mode):
     num_channels = 0
     for image in _iterate_all_images(layers):
+        if (image.color_mode is not None and
+                image.color_mode != color_mode):
+            raise ValueError("Mismatched color mode")
         for index, channel in image.channels.items():
             if np.isscalar(channel):
                 continue
@@ -690,7 +747,9 @@ def nested_layers_to_psd(
 
     _update_sizes(layers)
 
-    num_channels, depth = _determine_channels_and_depth(layers, depth)
+    num_channels, depth = _determine_channels_and_depth(
+        layers, depth, color_mode
+    )
 
     if size is None:
         width, height = _adjust_positions(layers)

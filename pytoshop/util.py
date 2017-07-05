@@ -15,6 +15,9 @@ import struct
 import sys
 
 
+from . import enums
+
+
 DEBUG = False
 
 
@@ -367,3 +370,28 @@ def assert_is_list_of(value, cls, min=None, max=None):
             raise ValueError(
                 "All values must be in range {} to {}".format(min, max)
             )
+
+
+def _get_channel_id(color, color_mode):
+    if color not in enums.ColorChannelMapping:
+        raise ValueError("Unknown color '{}'".format(color))
+
+    exp_color_mode, channel_id = enums.ColorChannelMapping[color]
+    if exp_color_mode is not None and exp_color_mode != color_mode:
+        raise ValueError(
+            "Color '{!s}' is not valid for color mode '{!s}', "
+            "expected '{!s}'".format(
+                color, color_mode, exp_color_mode)
+        )
+
+    return channel_id
+
+
+def get_channel(color, color_mode, channels):
+    channel_id = _get_channel_id(color, color_mode)
+    return channels[channel_id]
+
+
+def set_channel(color, channel, color_mode, channels):
+    channel_id = _get_channel_id(color, color_mode)
+    channels[channel_id] = channel

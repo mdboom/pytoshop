@@ -593,7 +593,8 @@ class LayerRecord(object):
                  pixel_data_irrelevant=False,
                  name='',
                  channels={},
-                 blocks=[]):
+                 blocks=[],
+                 color_mode=None):
         self.top = top
         self.left = left
         self.bottom = bottom
@@ -607,6 +608,7 @@ class LayerRecord(object):
         self.name = name
         self.channels = channels
         self.blocks = blocks
+        self._color_mode = color_mode
 
     @property
     def top(self):
@@ -731,7 +733,12 @@ class LayerRecord(object):
 
     @property
     def channels(self):
-        "Dictionary from `enums.ChannelId` to `ChannelImageData`."
+        """
+        Dictionary from `enums.ChannelId` to `ChannelImageData`.
+
+        For safety against different color modes, it is better to use
+        `get_channel` and `set_channel`.
+        """
         return self._channels
 
     @channels.setter
@@ -750,6 +757,34 @@ class LayerRecord(object):
             sorted([(k, v) for (k, v) in value.items()]))
 
         self._channels = value
+
+    def get_channel(self, color):
+        """
+        Get a channel for a given color.  Raises an error if the color space
+        doesn't have the given color.
+
+        Parameters
+        ----------
+        color : enums.ColorChannel
+
+        Returns
+        -------
+        channel : ChannelImageData
+        """
+        return util.get_channel(color, self._color_mode, self._channels)
+
+    def set_channel(self, color, channel):
+        """
+        Set a channel for a given color.  Raises an error if the color space
+        doesn't have the given color.
+
+        Parameters
+        ----------
+        color : enums.ColorChannel
+
+        channel : ChannelImageData
+        """
+        return util.set_channel(color, channel, self._color_mode, self._channels)
 
     @property
     def blocks(self):
@@ -922,7 +957,8 @@ class LayerRecord(object):
             visible=visible,
             pixel_data_irrelevant=pixel_data_irrelevant,
             name=name,
-            blocks=blocks
+            blocks=blocks,
+            color_mode=header.color_mode
         )
 
         result._channel_data_lengths = channel_data_lengths
