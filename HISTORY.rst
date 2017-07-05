@@ -7,8 +7,8 @@ MASTER
 
 Minor improvements:
 
-- Make it easier to get the choose the right channel, given the
-  current color mode.
+- Make it easier to choose the right channel, given the current color
+  mode.
 
 0.5.0 (2017-07-03)
 ------
