@@ -1,11 +1,11 @@
 name: pytoshop
 dependencies:
-- cython=0.24.1=py35_0
-- numpy=1.11.1=py35_1
-- pytest=2.9.2=py35_0
+- cython >=0.24
+- numpy >=1.11
+- pytest
 - pytest-cov
-- python=3.5.2=0
-- sphinx=1.4.6=py35_0
+- python >=3.5
+- sphinx >=1.4.0
 - coverage
 - flake8
 - six

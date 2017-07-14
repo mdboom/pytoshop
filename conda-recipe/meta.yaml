@@ -1,0 +1,34 @@
+package:
+  name: pytoshop
+
+  version: {{ load_setup_py_data().version }}
+
+source:
+  path: ..
+
+requirements:
+  build:
+    - python
+    - numpy x.x
+    - cython
+
+  run:
+    - numpy x.x
+    - cython
+    - six
+
+test:
+  source_files:
+    - pytoshop
+    - tests
+
+  requires:
+    - pytest
+
+  commands:
+    - cd tests
+    - py.test --import-mode=append
+
+about:
+  summary:
+    A Python-based library to read and write Photoshop PSD and PSB files.
