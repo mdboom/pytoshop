@@ -2,7 +2,7 @@
 History
 =======
 
-MASTER
+0.6.0 (2017-07-24 15:05:48.304981)
 ------
 
 Minor improvements:

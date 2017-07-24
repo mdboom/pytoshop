@@ -35,7 +35,7 @@ else:
 
 setup(
     name='pytoshop',
-    version='0.5.0',
+    version='0.6.0',
     description="A Python-based library to write Photoshop PSD files",
     long_description=readme + '\n\n' + history,
     author="Michael Droettboom",
