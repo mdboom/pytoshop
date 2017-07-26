@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# disable interpolation in configparser
+import configparser
+configparser.ConfigParser = configparser.RawConfigParser
+
+
 from setuptools import setup
 from setuptools.extension import Extension
 
