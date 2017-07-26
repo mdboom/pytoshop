@@ -8,12 +8,11 @@ python:
   - 3.6
 
 install:
-  - pip install -r requirements_dev.txt
-  - pip install -r requirements.txt
-  - pushd ..
+  - mkdir tmp
+  - pushd tmp ; pip install -r ../requirements_dev.txt ; popd
+  - pushd tmp ; pip install -r ../requirements.txt ; popd
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then pip install enum34; fi
-  - pip install codecov
-  - popd
+  - pushd tmp ; pip install codecov ; popd
   - python setup.py build_ext --inplace
 
 script:
