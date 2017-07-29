@@ -2,7 +2,7 @@
 History
 =======
 
-MASTER
+1.0.0 (2017-07-29)
 ------
 
 - Declared API as stable.
