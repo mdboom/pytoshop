@@ -233,5 +233,15 @@ def test_proxy(compression):
         [x.image for x in image.channels.values()]
 
 
+def test_masked_layer():
+    filename = os.path.join(DATA_PATH, 'masked_layer.psd')
+    with open(filename, 'rb') as fd:
+        psd = pytoshop.PsdFile.read(fd)
+
+        layers = nested_layers.psd_to_nested_layers(psd)
+
+        assert layers[0].channels[0].shape == layers[0].channels[-2].shape
+
+
 if __name__ == '__main__':
     test_proxy(1)

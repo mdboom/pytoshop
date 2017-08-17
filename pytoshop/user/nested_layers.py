@@ -362,6 +362,37 @@ def pprint_layers(layers, indent=0):
                 layer.name, layer.top, layer.left, layer.bottom, layer.right))
 
 
+def _fix_user_layer_mask_size(layer, channel):
+    # The user layer isn't always the same size as the main layer.
+    # This synthesizes a user layer that is exactly the same size as
+    # the main layer.  Parts of the user layer that extend beyond the
+    # main layer will be lost.
+
+    from .. import layers
+
+    def to_slice(rect):
+        return (slice(*[int(x) for x in np.floor(rect[:, 0])]),
+                slice(*[int(x) for x in np.ceil(rect[:, 1])]))
+
+    main = np.array([[layer.top, layer.left],
+                     [layer.bottom, layer.right]])
+    mask = np.array([[layer.mask.top, layer.mask.left],
+                     [layer.mask.bottom, layer.mask.right]])
+    rects = np.stack([main, mask])
+    intersection = np.array([
+        np.max(rects[..., 0, :], axis=0),
+        np.min(rects[..., 1, :], axis=0)])
+    intersection_size = intersection[1] - intersection[0]
+    channel_image = channel.image
+    new_channel_image = np.full(
+        tuple(main[1] - main[0]), -1, channel_image.dtype)
+    new_channel = layers.ChannelImageData(new_channel_image)
+    if not np.any(intersection_size < 0):
+        new_channel_image[to_slice(intersection - main[0])] = channel_image[
+            to_slice(intersection - mask[0])]
+    return new_channel
+
+
 def psd_to_nested_layers(psdfile):
     """
     Convert a `PsdFile` instance to a hierarchy of nested `Layer`
@@ -458,13 +489,20 @@ def psd_to_nested_layers(psdfile):
                 raise ValueError("Invalid state")
 
         else:
+
+            channels = dict(layer.channels)
+            if enums.ChannelId.user_layer_mask in layer.channels:
+                channels[enums.ChannelId.user_layer_mask] = \
+                    _fix_user_layer_mask_size(
+                        layer, layer.channels[enums.ChannelId.user_layer_mask])
+
             layer = Image(
                 name=name,
                 top=layer.top,
                 left=layer.left,
                 bottom=layer.bottom,
                 right=layer.right,
-                channels=layer.channels,
+                channels=channels,
                 blend_mode=blend_mode,
                 visible=visible,
                 opacity=opacity,
