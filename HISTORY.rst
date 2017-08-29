@@ -2,6 +2,14 @@
 History
 =======
 
+MASTER
+------
+
+Bugfixes:
+
+- Fix #4: Change masked layer to same size as image layer when using
+  the `user.nested_layers` interface.
+
 1.0.1 (2017-08-01) (2017-07-29)
 ------
 
