@@ -489,9 +489,6 @@ class ChannelImageData(object):
                     "May not provide both image and other parameters")
             self._image = image
         else:
-            if image is not None:
-                raise ValueError(
-                    "May not provide both image and other parameters")
             self._image = None
             self._fd = fd
             self._offset = offset

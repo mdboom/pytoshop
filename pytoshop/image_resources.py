@@ -569,9 +569,6 @@ class GuideResourceBlock(object):
     def write(self, fd, header):
         util.write_value(fd, 'IB', self.location, self.direction)
 
-    def data_length(self, header):
-        return 5
-
 
 class GridAndGuidesInfo(ImageResourceBlock):
     """
@@ -650,7 +647,9 @@ class GridAndGuidesInfo(ImageResourceBlock):
     @util.trace_write
     def write_data(self, fd, header):
         util.write_value(
-            fd, 'IIII', 1, self.grid_hori, self.grid_vert, len(self.guides)
+            fd, 'IIII', self.version,
+            self.grid_hori, self.grid_vert,
+            len(self.guides)
         )
         for guide in self.guides:
             guide.write(fd, header)
