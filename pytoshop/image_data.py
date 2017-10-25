@@ -36,9 +36,6 @@ class ImageData(object):
             self._channels = channels
             self._fd = None
         elif fd is not None:
-            if channels is not None:
-                raise ValueError(
-                    "May not provide both channels and other parameters")
             self._image = None
             self._fd = fd
             self._offset = offset
@@ -93,7 +90,7 @@ class ImageData(object):
     def shape(self):
         if self._fd is None:
             return self._channels.shape
-        return self._shape
+        return (self._num_channels, self._height, self._width)
 
     @classmethod
     @util.trace_read

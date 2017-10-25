@@ -23,6 +23,13 @@ def test_files(filename):
     with open(filename, 'rb') as fd:
         f = pytoshop.read(fd)
 
+        channels = f.image_data.channels
+        assert channels is not None
+        shape = f.image_data.shape
+        assert len(shape) == 3
+        info_map = f.layer_and_mask_info.additional_layer_info_map
+        assert isinstance(info_map, dict)
+
         fd2 = io.BytesIO()
         f.write(fd2)
 

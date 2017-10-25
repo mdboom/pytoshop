@@ -10,7 +10,6 @@ from __future__ import unicode_literals, absolute_import
 
 
 from functools import wraps
-import math
 import struct
 import sys
 
@@ -247,14 +246,10 @@ def unicode_string_length(value):
     return len(encode_unicode_string(value))
 
 
-def round_up(x, base=2):
-    return int(base * math.ceil(float(x) / base))
-
-
 _indent = [0]
 
 
-def trace_read(func):
+def trace_read(func):  # pragma: no cover
     """
     Prints debugging information from a read or write method.
 

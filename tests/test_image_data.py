@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+import inspect
 import io
 
 
@@ -19,7 +20,7 @@ def test_image_data_invalid_shape():
 
 def test_image_data_invalid_dtype():
     with pytest.raises(ValueError):
-        image_data.ImageData(channels=np.empty((52,)))
+        image_data.ImageData(channels=np.empty((3, 52, 52)))
 
 
 def test_image_valid_size():
@@ -47,3 +48,21 @@ def test_image_invalid_size():
 
     with pytest.raises(ValueError):
         psd.write(io.BytesIO())
+
+
+def test_channels_with_other_parameters():
+    args = inspect.getargspec(image_data.ImageData.__init__)
+    for arg in args[0]:
+        if arg in ('self', 'channels', 'compression'):
+            continue
+        with pytest.raises(ValueError):
+            image_data.ImageData(
+                channels=np.empty((3, 0, 0), dtype='u8'),
+                **{arg: 0})
+
+
+def test_invalid_compression_type():
+    with pytest.raises(ValueError):
+        image_data.ImageData(compression=4)
+    with pytest.raises(ValueError):
+        image_data.ImageData(compression='zlib')
