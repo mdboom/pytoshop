@@ -9,15 +9,17 @@ Sections related to image layers.
 from __future__ import unicode_literals, absolute_import
 
 
-import collections
+from collections import OrderedDict
 import os
 
 
 import numpy as np
+
+
 import six
 
 
-from . import blending_range
+from .blending_range import BlendingRanges
 from . import codecs
 from . import docs
 from . import enums
@@ -25,24 +27,36 @@ from . import tagged_block
 from . import util
 
 
+from typing import Any, BinaryIO, Dict, List, Optional, Tuple, TYPE_CHECKING, Union  # NOQA
+if TYPE_CHECKING:
+    from . import core  # NOQA
+
+
 class LayerMask(object):
     """
     Layer mask / adjustment layer data.
     """
     def __init__(self,
-                 top=0, left=0, bottom=0, right=0,
-                 default_color=False,
-                 position_relative_to_layer=False,
-                 layer_mask_disabled=False,
-                 invert_layer_mask_when_blending=False,
-                 user_mask_from_rendering_other_data=False,
-                 user_mask_density=None,
-                 user_mask_feather=None,
-                 vector_mask_density=None,
-                 vector_mask_feather=None,
-                 real_flags=0,
-                 real_user_mask_background=False,
-                 real_top=0, real_left=0, real_bottom=0, real_right=0):
+                 top=0,                                      # type: int
+                 left=0,                                     # type: int
+                 bottom=0,                                   # type: int
+                 right=0,                                    # type: int
+                 default_color=False,                        # type: bool
+                 position_relative_to_layer=False,           # type: bool
+                 layer_mask_disabled=False,                  # type: bool
+                 invert_layer_mask_when_blending=False,      # type: bool
+                 user_mask_from_rendering_other_data=False,  # type: bool
+                 user_mask_density=None,    # type: Optional[int]
+                 user_mask_feather=None,    # type: Optional[int]
+                 vector_mask_density=None,  # type: Optional[int]
+                 vector_mask_feather=None,  # type: Optional[int]
+                 real_flags=0,                               # type: int
+                 real_user_mask_background=False,            # type: bool
+                 real_top=0,                                 # type: int
+                 real_left=0,                                # type: int
+                 real_bottom=0,                              # type: int
+                 real_right=0                                # type: int
+                 ):  # type: (...) -> None
         self.top = top
         self.left = left
         self.bottom = bottom
@@ -65,91 +79,91 @@ class LayerMask(object):
         self.real_right = real_right
 
     @property
-    def top(self):
+    def top(self):  # type: (...) -> int
         "Top of rectangle enclosing layer mask"
         return self._top
 
     @top.setter
-    def top(self, value):
+    def top(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("top must be a 32-bit integer")
         self._top = value
 
     @property
-    def left(self):
+    def left(self):  # type: (...) -> int
         "Left of rectangle enclosing layer mask"
         return self._left
 
     @left.setter
-    def left(self, value):
+    def left(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("left must be a 32-bit integer")
         self._left = value
 
     @property
-    def bottom(self):
+    def bottom(self):  # type: (...) -> int
         "Bottom of rectangle enclosing layer mask"
         return self._bottom
 
     @bottom.setter
-    def bottom(self, value):
+    def bottom(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("bottom must be a 32-bit integer")
         self._bottom = value
 
     @property
-    def right(self):
+    def right(self):  # type: (...) -> int
         "Right of rectangle enclosing layer mask"
         return self._right
 
     @right.setter
-    def right(self, value):
+    def right(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("right must be a 32-bit integer")
         self._right = value
 
     @property
-    def default_color(self):
+    def default_color(self):  # type: (...) -> bool
         "Default color for mask"
         return self._default_color
 
     @default_color.setter
-    def default_color(self, value):
+    def default_color(self, value):  # type: (Any) -> None
         self._default_color = bool(value)
 
     @property
-    def position_relative_to_layer(self):
+    def position_relative_to_layer(self):  # type: (...) -> bool
         "position relative to layer"
         return self._position_relative_to_layer
 
     @position_relative_to_layer.setter
-    def position_relative_to_layer(self, value):
+    def position_relative_to_layer(self, value):  # type: (Any) -> None
         self._position_relative_to_layer = bool(value)
 
     @property
-    def layer_mask_disabled(self):
+    def layer_mask_disabled(self):  # type: (...) -> bool
         "Layer mask disabled"
         return self._layer_mask_disabled
 
     @layer_mask_disabled.setter
-    def layer_mask_disabled(self, value):
+    def layer_mask_disabled(self, value):  # type: (Any) -> None
         self._layer_mask_disabled = bool(value)
 
     @property
-    def invert_layer_mask_when_blending(self):
+    def invert_layer_mask_when_blending(self):  # type: (...) -> bool
         "Invert layer mask when blending (obsolete)"
         return self._invert_layer_mask_when_blending
 
     @invert_layer_mask_when_blending.setter
-    def invert_layer_mask_when_blending(self, value):
+    def invert_layer_mask_when_blending(self, value):  # type: (Any) -> None
         self._invert_layer_mask_when_blending = bool(value)
 
     @property
-    def user_mask_from_rendering_other_data(self):
+    def user_mask_from_rendering_other_data(self):  # type: (...) -> bool
         """
         Indicates that the user mask actually came from rendering
         other data.
@@ -158,15 +172,16 @@ class LayerMask(object):
 
     @user_mask_from_rendering_other_data.setter
     def user_mask_from_rendering_other_data(self, value):
+        # type: (Any) -> None
         self._user_mask_from_rendering_other_data = bool(value)
 
     @property
-    def user_mask_density(self):
+    def user_mask_density(self):  # type: (...) -> Optional[int]
         "User mask density"
         return self._user_mask_density
 
     @user_mask_density.setter
-    def user_mask_density(self, value):
+    def user_mask_density(self, value):  # type: (Optional[int]) -> None
         if (value is not None and
             (not isinstance(value, int) or
              value < 0 or value > 255)):
@@ -176,12 +191,12 @@ class LayerMask(object):
         self._user_mask_density = value
 
     @property
-    def user_mask_feather(self):
+    def user_mask_feather(self):  # type: (...) -> Optional[int]
         "User mask feather"
         return self._user_mask_feather
 
     @user_mask_feather.setter
-    def user_mask_feather(self, value):
+    def user_mask_feather(self, value):  # type: (Optional[int]) -> None
         if (value is not None and
             (not isinstance(value, int) or
              value < 0 or value > 255)):
@@ -191,12 +206,12 @@ class LayerMask(object):
         self._user_mask_feather = value
 
     @property
-    def vector_mask_density(self):
+    def vector_mask_density(self):  # type: (...) -> Optional[int]
         "Vector mask density"
         return self._vector_mask_density
 
     @vector_mask_density.setter
-    def vector_mask_density(self, value):
+    def vector_mask_density(self, value):  # type: (Optional[int]) -> None
         if (value is not None and
             (not isinstance(value, int) or
              value < 0 or value > 255)):
@@ -206,12 +221,12 @@ class LayerMask(object):
         self._vector_mask_density = value
 
     @property
-    def vector_mask_feather(self):
+    def vector_mask_feather(self):  # type: (...) -> Optional[int]
         "Vector mask feather"
         return self._vector_mask_feather
 
     @vector_mask_feather.setter
-    def vector_mask_feather(self, value):
+    def vector_mask_feather(self, value):  # type: (Optional[int]) -> None
         if (value is not None and
             (not isinstance(value, int) or
              value < 0 or value > 255)):
@@ -221,110 +236,110 @@ class LayerMask(object):
         self._vector_mask_feather = value
 
     @property
-    def real_flags(self):
+    def real_flags(self):  # type: (...) -> int
         return self._real_flags
 
     @real_flags.setter
-    def real_flags(self, value):
+    def real_flags(self, value):  # type: (int) -> None
         if not isinstance(value, int):
             raise TypeError("real_flags must be an int")
         self._real_flags = value
 
     @property
-    def real_user_mask_background(self):
+    def real_user_mask_background(self):  # type: (...) -> bool
         return self._real_user_mask_background
 
     @real_user_mask_background.setter
-    def real_user_mask_background(self, value):
+    def real_user_mask_background(self, value):  # type: (Any) -> None
         self._real_user_mask_background = bool(value)
 
     @property
-    def real_top(self):
+    def real_top(self):  # type: (...) -> int
         return self._real_top
 
     @real_top.setter
-    def real_top(self, value):
+    def real_top(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("real_top must be a 32-bit integer")
         self._real_top = value
 
     @property
-    def real_left(self):
+    def real_left(self):  # type: (...) -> int
         return self._real_left
 
     @real_left.setter
-    def real_left(self, value):
+    def real_left(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("real_left must be a 32-bit integer")
         self._real_left = value
 
     @property
-    def real_bottom(self):
+    def real_bottom(self):  # type: (...) -> int
         return self._real_bottom
 
     @real_bottom.setter
-    def real_bottom(self, value):
+    def real_bottom(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("real_bottom must be a 32-bit integer")
         self._real_bottom = value
 
     @property
-    def real_right(self):
+    def real_right(self):  # type: (...) -> int
         return self._real_right
 
     @real_right.setter
-    def real_right(self, value):
+    def real_right(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("real_right must be a 32-bit integer")
         self._real_right = value
 
     @property
-    def width(self):
+    def width(self):  # type: (...) -> int
         """
         Width of the mask layer.
         """
         return self.right - self.left
 
     @property
-    def height(self):
+    def height(self):  # type: (...) -> int
         """
         Height of the mask layer.
         """
         return self.bottom - self.top
 
     @property
-    def shape(self):
+    def shape(self):  # type: (...) -> Tuple[int, int]
         """
         Shape of the mask layer ``(height, width)``.
         """
         return (self.height, self.width)
 
     @property
-    def real_width(self):
+    def real_width(self):  # type: (...) -> int
         """
         Real width of the mask layer.
         """
         return self.real_right - self.real_left
 
     @property
-    def real_height(self):
+    def real_height(self):  # type: (...) -> int
         """
         Real height of the mask layer.
         """
         return self.real_bottom - self.real_top
 
     @property
-    def real_shape(self):
+    def real_shape(self):  # type: (...) -> Tuple[int, int]
         """
         Real shape of the mask layer ``(height, width)``.
         """
         return (self.real_height, self.real_width)
 
-    def length(self, header):
+    def length(self, header):  # type: (core.Header) -> int
         length = 16 + 1 + 1
         mask_flags = self._get_mask_flags()
         if mask_flags:
@@ -339,13 +354,13 @@ class LayerMask(object):
                 length += 8
         length += 1 + 1 + 16
         return length
-    length.__doc__ = docs.length
+    length.__doc__ = docs.length  # type: ignore
 
-    def total_length(self, header):
+    def total_length(self, header):  # type: (core.Header) -> int
         return 4 + self.length(header)
-    total_length.__doc__ = docs.total_length
+    total_length.__doc__ = docs.total_length  # type: ignore
 
-    def _get_mask_flags(self):
+    def _get_mask_flags(self):  # type: (...) -> int
         return util.pack_bitflags(
             self.user_mask_density is not None,
             self.user_mask_feather is not None,
@@ -354,9 +369,9 @@ class LayerMask(object):
 
     @classmethod
     @util.trace_read
-    def read(cls, fd):
+    def read(cls, fd):  # type: (BinaryIO) -> LayerMask
         length = util.read_value(fd, 'I')
-        d = {}
+        d = {}  # type: Dict[unicode, Any]
         end = fd.tell() + length
         util.log("length: {}, end: {}", length, end)
 
@@ -429,6 +444,7 @@ class LayerMask(object):
 
     @util.trace_write
     def write(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         def write_rectangle(top, left, bottom, right):
             util.write_value(fd, 'iiii', top, left, bottom, right)
 
@@ -450,7 +466,7 @@ class LayerMask(object):
             self.layer_mask_disabled,
             self.invert_layer_mask_when_blending,
             self.user_mask_from_rendering_other_data,
-            mask_flags)
+            mask_flags != 0)
 
         util.write_value(fd, 'B', flags)
 
@@ -460,7 +476,7 @@ class LayerMask(object):
             if self.user_mask_density is not None:
                 util.write_value(fd, 'B', self.user_mask_density)
             if self.user_mask_feather is not None:
-                util.write_value(fd, 'd', self.user_make_feather)
+                util.write_value(fd, 'd', self.user_mask_feather)
             if self.vector_mask_density is not None:
                 util.write_value(fd, 'B', self.vector_mask_density)
             if self.vector_mask_feather is not None:
@@ -477,68 +493,93 @@ class ChannelImageData(object):
     """
     A single plane of channel image data.
     """
-    def __init__(self, image=None, fd=None, offset=None, size=None,
-                 shape=None, depth=None, version=None,
-                 compression=enums.Compression.raw):
+    def __init__(self,
+                 image=None,    # type: Optional[np.ndarray]
+                 fd=None,       # type: Optional[BinaryIO]
+                 offset=None,   # type: Optional[int]
+                 size=None,     # type: Optional[int]
+                 shape=None,    # type: Optional[Tuple[int, int]]
+                 depth=None,    # type: Optional[int]
+                 version=None,  # type: Optional[int]
+                 compression=enums.Compression.raw  # type: int
+                 ):  # type: (...) -> None
         self.compression = compression
-        if image is not None:
-            if (fd is not None or offset is not None or size is not None or
-                    shape is not None or depth is not None or
-                    version is not None):
-                raise ValueError(
-                    "May not provide both image and other parameters")
-            self._image = image
-        else:
-            self._image = None
-            self._fd = fd
-            self._offset = offset
-            self._size = size
-            self._shape = shape
-            self._depth = depth
-            self._version = version
+        case_a = image is not None
+        case_b = (fd is not None or offset is not None or size is not None or
+                  shape is not None or depth is not None or
+                  version is not None)
+        if case_a and case_b:
+            raise ValueError(
+                "May not provide both image and other parameters")
+        self._image = image
+        self._fd = fd
+        self._offset = offset
+        self._size = size
+        self._shape = shape
+        self._depth = depth
+        self._version = version
 
     @property
-    def compression(self):
+    def compression(self):  # type: (...) -> int
         "Compression method. See `enums.Compression`."
         return self._compression
 
     @compression.setter
-    def compression(self, value):
-        if value not in list(enums.Compression):
+    def compression(self, value):  # type: (int) -> None
+        if value not in list(enums.Compression):  # type: ignore
             raise ValueError("Invalid compression type.")
         self._compression = value
 
     @property
-    def image(self):
+    def image(self):  # type: (...) -> np.ndarray
         if self._image is not None:
             return self._image
+        if (self._fd is None or
+                self._offset is None or
+                self._size is None or
+                self._shape is None or
+                self._depth is None or
+                self._version is None):
+            raise RuntimeError(
+                "Inconsistent file descriptor state")
         tell = self._fd.tell()
         try:
             self._fd.seek(self._offset)
             data = self._fd.read(self._size)
             return codecs.decompress_image(
-                data, self.compression, self._shape, self._depth,
-                self._version)
+                data, self.compression,
+                self._shape, self._depth, self._version)
         finally:
             self._fd.seek(tell)
 
     @image.setter
-    def image(self, image):
+    def image(self, image):  # type: (np.ndarray) -> None
         self._image = image
 
     @property
-    def shape(self):
+    def shape(self):  # type: (...) -> Tuple[int, int]
         if self._image is not None:
             return self._image.shape
+        if self._shape is None:
+            raise RuntimeError("Inconsistent state")
         return self._shape
 
     @property
-    def dtype(self):
+    def dtype(self):  # type: (...) -> np.dtype
+        if self._image is not None:
+            return self._image.dtype
+        if self._depth is None:
+            raise RuntimeError("Inconsistent state")
         return np.dtype(codecs.color_depth_dtype_map[self._depth])
 
     @classmethod
     @util.trace_read
-    def read(cls, fd, header, shape, size):
+    def read(cls,
+             fd,      # type: BinaryIO
+             header,  # type: core.Header
+             shape,   # type: Tuple[int, int]
+             size     # type: int
+             ):       # type: (...) -> ChannelImageData
         compression = util.read_value(fd, 'H')
         util.log("compression: {}", enums.Compression(compression))
         offset = fd.tell()
@@ -550,7 +591,11 @@ class ChannelImageData(object):
     read.__func__.__doc__ = docs.read
 
     @util.trace_write
-    def write(self, fd, header, shape):
+    def write(self,
+              fd,      # type: BinaryIO
+              header,  # type: core.Header
+              shape    # type: Tuple[int, int]
+              ):       # type: (...) -> int
         start = fd.tell()
         util.write_value(fd, 'H', self.compression)
         if self._image is not None:
@@ -558,6 +603,11 @@ class ChannelImageData(object):
                 fd, self.image, self.compression, shape, 1,
                 header.depth, header.version)
         else:
+            if (self._fd is None or
+                    self._offset is None or
+                    self._size is None):
+                raise RuntimeError("Inconsistent state")
+
             if header.version == self._version:
                 tell = self._fd.tell()
                 try:
@@ -581,17 +631,21 @@ class LayerRecord(object):
     There is one of these per logical layer in the file.
     """
     def __init__(self,
-                 top=0, left=0, bottom=0, right=0,
-                 blend_mode=enums.BlendMode.normal,
-                 opacity=255,
-                 clipping=False,
-                 transparency_protected=False,
-                 visible=True,
-                 pixel_data_irrelevant=False,
-                 name='',
-                 channels={},
-                 blocks=[],
-                 color_mode=None):
+                 top=0,                              # type: int
+                 left=0,                             # type: int
+                 bottom=0,                           # type: int
+                 right=0,                            # type: int
+                 blend_mode=enums.BlendMode.normal,  # type: bytes
+                 opacity=255,                        # type: int
+                 clipping=False,                     # type: bool
+                 transparency_protected=False,       # type: bool
+                 visible=True,                       # type: bool
+                 pixel_data_irrelevant=False,        # type: bool
+                 name='',                            # type: unicode
+                 channels={},  # type: Dict[int, ChannelImageData]
+                 blocks=[],    # type: List[tagged_block.TaggedBlock]
+                 color_mode=None                     # type: Optional[int]
+                 ):  # type: (...) -> None
         self.top = top
         self.left = left
         self.bottom = bottom
@@ -606,120 +660,127 @@ class LayerRecord(object):
         self.channels = channels
         self.blocks = blocks
         self._color_mode = color_mode
+        self._fd = None  # type: Optional[BinaryIO]
+        self._mask = None  # type: Optional[LayerMask]
+        self._mask_offset = None  # type: Optional[int]
+        self._blending_ranges = None  # type: Optional[BlendingRanges]
+        self._blending_ranges_offset = None  # type: Optional[int]
+        self._channel_data_lengths = []  # type: List[int]
+        self._channel_ids = []           # type: List[int]
 
     @property
-    def top(self):
+    def top(self):  # type: (...) -> int
         "Top of rectangle enclosing layer"
         return self._top
 
     @top.setter
-    def top(self, value):
+    def top(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("top must be a 32-bit integer")
         self._top = value
 
     @property
-    def left(self):
+    def left(self):  # type: (...) -> int
         "Left of rectangle enclosing layer"
         return self._left
 
     @left.setter
-    def left(self, value):
+    def left(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("left must be a 32-bit integer")
         self._left = value
 
     @property
-    def bottom(self):
+    def bottom(self):  # type: (...) -> int
         "Bottom of rectangle enclosing layer"
         return self._bottom
 
     @bottom.setter
-    def bottom(self, value):
+    def bottom(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("bottom must be a 32-bit integer")
         self._bottom = value
 
     @property
-    def right(self):
+    def right(self):  # type: (...) -> int
         "Right of rectangle enclosing layer"
         return self._right
 
     @right.setter
-    def right(self, value):
+    def right(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
             raise ValueError("right must be a 32-bit integer")
         self._right = value
 
     @property
-    def blend_mode(self):
+    def blend_mode(self):  # type: (...) -> bytes
         "Blend mode. See `enums.BlendMode`"
         return self._blend_mode
 
     @blend_mode.setter
-    def blend_mode(self, value):
-        if value not in list(enums.BlendMode):
+    def blend_mode(self, value):  # type: (bytes) -> None
+        if value not in list(enums.BlendMode):  # type: ignore
             raise ValueError("Invalid blend mode.")
         self._blend_mode = value
 
     @property
-    def opacity(self):
+    def opacity(self):  # type: (...) -> int
         "Opacity. 0=transparent, 255=opaque"
         return self._opacity
 
     @opacity.setter
-    def opacity(self, value):
+    def opacity(self, value):  # type: (int) -> None
         if not isinstance(value, int) or value < 0 or value > 255:
             raise ValueError("opacity must be an int in range 0 to 255")
         self._opacity = value
 
     @property
-    def clipping(self):
+    def clipping(self):  # type: (...) -> bool
         "Clipping. False=base, True=non-base"
         return self._clipping
 
     @clipping.setter
-    def clipping(self, value):
+    def clipping(self, value):  # type: (Any) -> None
         self._clipping = bool(value)
 
     @property
-    def transparency_protected(self):
+    def transparency_protected(self):  # type: (...) -> bool
         "Transparency protected"
         return self._transparency_protected
 
     @transparency_protected.setter
-    def transparency_protected(self, value):
+    def transparency_protected(self, value):  # type: (Any) -> None
         self._transparency_protected = bool(value)
 
     @property
-    def visible(self):
+    def visible(self):  # type: (...) -> bool
         "Visible"
         return self._visible
 
     @visible.setter
-    def visible(self, value):
+    def visible(self, value):  # type: (Any) -> None
         self._visible = bool(value)
 
     @property
-    def pixel_data_irrelevant(self):
+    def pixel_data_irrelevant(self):  # type: (...) -> bool
         "Pixel data is irrelevant to appearance of document"
         return self._pixel_data_irrelevant
 
     @pixel_data_irrelevant.setter
-    def pixel_data_irrelevant(self, value):
+    def pixel_data_irrelevant(self, value):  # type: (Any) -> None
         self._pixel_data_irrelevant = bool(value)
 
     @property
-    def name(self):
+    def name(self):  # type: (...) -> unicode
         "Name of layer"
         return self._name
 
     @name.setter
-    def name(self, value):
+    def name(self, value):  # type: (Union[bytes, unicode]) -> None
         if isinstance(value, bytes):
             value = value.decode('ascii')
 
@@ -730,6 +791,7 @@ class LayerRecord(object):
 
     @property
     def channels(self):
+        # type: (...) -> Dict[int, ChannelImageData]
         """
         Dictionary from `enums.ChannelId` to `ChannelImageData`.
 
@@ -740,6 +802,7 @@ class LayerRecord(object):
 
     @channels.setter
     def channels(self, value):
+        # type: (Dict[int, ChannelImageData]) -> None
         if not isinstance(value, dict):
             raise TypeError("channels must be a dict")
 
@@ -750,12 +813,12 @@ class LayerRecord(object):
                 raise ValueError(
                     "Each channel must be ChannelImageData instance")
 
-        value = collections.OrderedDict(
+        value = OrderedDict(
             sorted([(k, v) for (k, v) in value.items()]))
 
         self._channels = value
 
-    def get_channel(self, color):
+    def get_channel(self, color):  # type: (int) -> ChannelImageData
         """
         Get a channel for a given color.  Raises an error if the color space
         doesn't have the given color.
@@ -771,6 +834,7 @@ class LayerRecord(object):
         return util.get_channel(color, self._color_mode, self._channels)
 
     def set_channel(self, color, channel):
+        # type: (int, ChannelImageData) -> None
         """
         Set a channel for a given color.  Raises an error if the color space
         doesn't have the given color.
@@ -787,6 +851,7 @@ class LayerRecord(object):
 
     @property
     def blocks(self):
+        # type: (...) -> List[tagged_block.TaggedBlock]
         """
         List of `tagged_block.TaggedBlock` items with additional
         information about this layer.
@@ -795,15 +860,20 @@ class LayerRecord(object):
 
     @blocks.setter
     def blocks(self, value):
+        # type: (List[tagged_block.TaggedBlock]) -> None
         util.assert_is_list_of(value, tagged_block.TaggedBlock)
         self._blocks = value
 
     @property
-    def mask(self):
-        if hasattr(self, '_mask'):
+    def mask(self):  # type: (...) -> LayerMask
+        if self._mask is not None:
             return self._mask
         else:
-            if hasattr(self, '_mask_offset'):
+            if getattr(self, '_mask_offset', None):
+                if (self._fd is None or
+                        self._mask_offset is None):
+                    raise RuntimeError("Inconsistent state")
+
                 start = self._fd.tell()
                 try:
                     self._fd.seek(self._mask_offset)
@@ -811,57 +881,63 @@ class LayerRecord(object):
                 finally:
                     self._fd.seek(start)
                 del self._mask_offset
-                return self._mask
+                return self._mask  # type: ignore
             else:
                 self._mask = LayerMask()
                 return self._mask
 
     @mask.setter
-    def mask(self, mask):
+    def mask(self, mask):  # type: (LayerMask) -> None
         if not isinstance(mask, LayerMask):
             raise TypeError("Must be a LayerMask instance")
         self._mask = mask
 
     @property
     def blending_ranges(self):
-        if hasattr(self, '_blending_ranges'):
+        # type: (...) -> BlendingRanges
+        if self._blending_ranges is not None:
             return self._blending_ranges
         else:
-            if hasattr(self, '_blending_ranges_offset'):
+            if getattr(self, '_blending_ranges_offset', None):
+                if (self._fd is None or
+                        self._blending_ranges_offset is None):
+                    raise RuntimeError("Internal inconsistency")
+
                 start = self._fd.tell()
                 try:
                     self._fd.seek(self._blending_ranges_offset)
-                    self._blending_ranges = blending_range.BlendingRanges.read(
+                    self._blending_ranges = BlendingRanges.read(
                         self._fd, len(self.channels))
                 finally:
                     self._fd.seek(start)
-                return self._blending_ranges
+                return self._blending_ranges  # type: ignore
             else:
-                self._blending_ranges = blending_range.BlendingRanges()
+                self._blending_ranges = BlendingRanges()
                 return self._blending_ranges
 
     @blending_ranges.setter
     def blending_ranges(self, blending_ranges):
-        if not isinstance(blending_ranges, blending_range.BlendingRanges):
+        # type: (BlendingRanges) -> None
+        if not isinstance(blending_ranges, BlendingRanges):
             raise TypeError("Must be a BlendingRanges instance")
         self._blending_ranges = blending_ranges
 
     @property
-    def width(self):
+    def width(self):  # type: (...) -> int
         """
         Width of the layer.
         """
         return self.right - self.left
 
     @property
-    def height(self):
+    def height(self):  # type: (...) -> int
         """
         Height of the layer.
         """
         return self.bottom - self.top
 
     @property
-    def shape(self):
+    def shape(self):  # type: (...) -> Tuple[int, int]
         """
         Shape of the layer ``(height, width)``.
         """
@@ -869,6 +945,7 @@ class LayerRecord(object):
 
     @property
     def blocks_map(self):
+        # type: (...) -> Dict[bytes, tagged_block.TaggedBlock]
         """
         A mapping from tagged block codes to
         `tagged_block.TaggedBlock` instances.
@@ -881,6 +958,7 @@ class LayerRecord(object):
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
+        # type: (BinaryIO, core.Header) -> LayerRecord
         top, left, bottom, right = util.read_value(fd, 'iiii')
 
         util.log("position: ({}, {}, {}, {})", top, left, bottom, right)
@@ -969,10 +1047,12 @@ class LayerRecord(object):
     read.__func__.__doc__ = docs.read
 
     def read_channel_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         """
         Read the `ChannelImageData` for this layer.
         """
-        channels = collections.OrderedDict()
+        channels = \
+            OrderedDict()  # type: OrderedDict[int, ChannelImageData]
         for channel_id, channel_length in zip(
                 self._channel_ids, self._channel_data_lengths):
             if channel_id == enums.ChannelId.user_layer_mask:
@@ -987,6 +1067,7 @@ class LayerRecord(object):
 
     @util.trace_write
     def write(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(
             fd, 'iiii',
             self.top, self.left, self.bottom, self.right
@@ -1020,6 +1101,7 @@ class LayerRecord(object):
     write.__doc__ = docs.write
 
     def write_channel_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         """
         Write the `ChannelImageData` for this layer.
         """
@@ -1048,22 +1130,27 @@ class LayerInfo(object):
     """
     A set of `LayerRecord` instances.
     """
-    def __init__(self, layer_records=[], use_alpha_channel=False):
+    def __init__(self,
+                 layer_records=[],        # type: List[LayerRecord]
+                 use_alpha_channel=False  # type: bool
+                 ):  # type: (...) -> None
         self.layer_records = layer_records
         self.use_alpha_channel = use_alpha_channel
 
     @property
     def layer_records(self):
+        # type: (...) -> List[LayerRecord]
         "List of `LayerRecord` instances"
         return self._layer_records
 
     @layer_records.setter
     def layer_records(self, value):
+        # type: (List[LayerRecord]) -> None
         util.assert_is_list_of(value, LayerRecord)
         self._layer_records = value
 
     @property
-    def use_alpha_channel(self):
+    def use_alpha_channel(self):  # type: (...) -> bool
         """
         Indicates that the first channel contains transparency data
         for the merged result.
@@ -1071,12 +1158,13 @@ class LayerInfo(object):
         return self._use_alpha_channel
 
     @use_alpha_channel.setter
-    def use_alpha_channel(self, value):
+    def use_alpha_channel(self, value):  # type: (Any) -> None
         self._use_alpha_channel = bool(value)
 
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
+        # type: (BinaryIO, core.Header) -> LayerInfo
         if header.version == 1:
             length = util.read_value(fd, 'I')
         else:
@@ -1113,6 +1201,7 @@ class LayerInfo(object):
 
     @util.trace_write
     def write(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         start = fd.tell()
         if header.version == 1:
             fd.seek(4, 1)
@@ -1144,21 +1233,23 @@ class GlobalLayerMaskInfo(object):
     """
     Global layer mask info.
     """
-    def __init__(self,
-                 overlay_color_space=b'\0' * 10,
-                 opacity=100,
-                 kind=enums.LayerMaskKind.use_value_stored_per_layer):
+    def __init__(
+            self,
+            overlay_color_space=b'\0' * 10,  # type: bytes
+            opacity=100,  # type: int
+            kind=enums.LayerMaskKind.use_value_stored_per_layer  # type: int
+            ):  # type: (...) -> None
         self.overlay_color_space = overlay_color_space
         self.opacity = opacity
         self.kind = kind
 
     @property
-    def overlay_color_space(self):
+    def overlay_color_space(self):  # type: (...) -> bytes
         "Undocumented"
         return self._overlay_color_space
 
     @overlay_color_space.setter
-    def overlay_color_space(self, value):
+    def overlay_color_space(self, value):  # type: (bytes) -> None
         if not isinstance(value, bytes) or len(value) != 10:
             raise ValueError(
                 "overlay_color_space must be a length 10 bytes string"
@@ -1166,31 +1257,32 @@ class GlobalLayerMaskInfo(object):
         self._overlay_color_space = value
 
     @property
-    def opacity(self):
+    def opacity(self):  # type: (...) -> int
         "Opacity. 0=transparent, 100=opaque"
         return self._opacity
 
     @opacity.setter
-    def opacity(self, value):
+    def opacity(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < 0 or value > 100):
             raise ValueError("opacity must be an int in the range 0 to 100")
         self._opacity = value
 
     @property
-    def kind(self):
+    def kind(self):  # type: (...) -> int
         "Layer mask kind. See `enums.LayerMaskKind`"
         return self._kind
 
     @kind.setter
-    def kind(self, value):
-        if value not in list(enums.LayerMaskKind):
+    def kind(self, value):  # type: (int) -> None
+        if value not in list(enums.LayerMaskKind):  # type: ignore
             raise ValueError("Invalid layer mask kind")
         self._kind = value
 
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
+        # type: (BinaryIO, core.Header) -> GlobalLayerMaskInfo
         length = util.read_value(fd, 'I')
         end = fd.tell() + length
         util.log("length: {}, end: {}", length, end)
@@ -1214,6 +1306,7 @@ class GlobalLayerMaskInfo(object):
 
     @util.trace_write
     def write(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(
             fd, 'I10sHB3s', 16, self.overlay_color_space, self.opacity,
             self.kind, b'\0\0\0'
@@ -1225,10 +1318,12 @@ class LayerAndMaskInfo(object):
     """
     Layer and mask information section.
     """
-    def __init__(self,
-                 layer_info=None,
-                 global_layer_mask_info=None,
-                 additional_layer_info=[]):
+    def __init__(
+            self,
+            layer_info=None,  # type: Optional[LayerInfo]
+            global_layer_mask_info=None,  # type: Optional[GlobalLayerMaskInfo]
+            additional_layer_info=[]  # type: List[tagged_block.TaggedBlock]
+            ):  # type: (...) -> None
         if layer_info is None:
             layer_info = LayerInfo()
         self.layer_info = layer_info
@@ -1236,23 +1331,25 @@ class LayerAndMaskInfo(object):
         self.additional_layer_info = additional_layer_info
 
     @property
-    def layer_info(self):
+    def layer_info(self):  # type: (...) -> LayerInfo
         "Layer info. See `LayerInfo`."
         return self._layer_info
 
     @layer_info.setter
-    def layer_info(self, value):
+    def layer_info(self, value):  # type: (LayerInfo) -> None
         if not isinstance(value, LayerInfo):
             raise TypeError("layer_info must be LayerInfo instance.")
         self._layer_info = value
 
     @property
     def global_layer_mask_info(self):
+        # type: (...) -> GlobalLayerMaskInfo
         "Global layer mask info. See `GlobalLayerMaskInfo`."
         return self._global_layer_mask_info
 
     @global_layer_mask_info.setter
     def global_layer_mask_info(self, value):
+        # type: (GlobalLayerMaskInfo) -> None
         if value is not None and not isinstance(value, GlobalLayerMaskInfo):
             raise TypeError(
                 "global_layer_mask_info must be GlobalLayerMaskInfo "
@@ -1262,16 +1359,19 @@ class LayerAndMaskInfo(object):
 
     @property
     def additional_layer_info(self):
+        # type: (...) -> List[tagged_block.TaggedBlock]
         "List of additional layer info. See `TaggedBlock`."
         return self._additional_layer_info
 
     @additional_layer_info.setter
     def additional_layer_info(self, value):
+        # type: (List[tagged_block.TaggedBlock]) -> None
         util.assert_is_list_of(value, tagged_block.TaggedBlock)
         self._additional_layer_info = value
 
     @property
     def additional_layer_info_map(self):
+        # type: (...) -> Dict[bytes, tagged_block.TaggedBlock]
         """
         A mapping from tagged block codes to
         `tagged_block.TaggedBlock` instances.
@@ -1284,6 +1384,7 @@ class LayerAndMaskInfo(object):
     @classmethod
     @util.trace_read
     def read(cls, fd, header):
+        # type: (BinaryIO, core.Header) -> LayerAndMaskInfo
         if header.version == 1:
             length = util.read_value(fd, 'I')
         else:
@@ -1310,6 +1411,7 @@ class LayerAndMaskInfo(object):
 
     @util.trace_write
     def write(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         start = fd.tell()
 
         if header.version == 1:

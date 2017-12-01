@@ -15,12 +15,15 @@ import zlib
 import numpy as np
 
 
+from typing import Any, BinaryIO, Callable, Dict, Tuple  # NOQA
+
+
 from . import enums
 from . import util
 
 
 try:
-    from . import packbits
+    from . import packbits  # type: ignore
 except ImportError:
     pass
 
@@ -96,7 +99,7 @@ color_depth_dtype_map = {
     8: 'u1',
     16: '>u2',
     32: '>u4'
-}
+}  # type: Dict[int, unicode]
 
 
 color_depth_size_map = {
@@ -104,10 +107,14 @@ color_depth_size_map = {
     8: 1,
     16: 2,
     32: 4
-}
+}  # type: Dict[int, int]
 
 
-def decompress_raw(data, shape, depth, version):
+def decompress_raw(data,    # type: bytes
+                   shape,   # type: Tuple[int, int]
+                   depth,   # type: int
+                   version  # type: int
+                   ):       # type: (...) -> np.ndarray
     """
     Converts raw data to a Numpy array.
 
@@ -132,10 +139,15 @@ def decompress_raw(data, shape, depth, version):
     return image
 
 
-decompress_raw.__doc__ = decompress_raw.__doc__.format(_decompress_params)
+decompress_raw.__doc__ = decompress_raw.__doc__.format(   # type: ignore
+    _decompress_params)
 
 
-def decompress_rle(data, shape, depth, version):
+def decompress_rle(data,    # type: bytes
+                   shape,   # type: Tuple[int, int]
+                   depth,   # type: int
+                   version  # type: int
+                   ):       # type: (...) -> np.ndarray
     """
     Decompress run length encoded data.
 
@@ -148,10 +160,15 @@ def decompress_rle(data, shape, depth, version):
     return decompress_raw(output, shape, depth, version)
 
 
-decompress_rle.__doc__ = decompress_rle.__doc__.format(_decompress_params)
+decompress_rle.__doc__ = decompress_rle.__doc__.format(  # type: ignore
+    _decompress_params)
 
 
-def decompress_zip(data, shape, depth, version):
+def decompress_zip(data,    # type: bytes
+                   shape,   # type: Tuple[int, int]
+                   depth,   # type: int
+                   version  # type: int
+                   ):       # type: (...) -> np.ndarray
     """
     Decompress zip (zlib) encoded data.
 
@@ -161,10 +178,15 @@ def decompress_zip(data, shape, depth, version):
     return decompress_raw(data, shape, depth, version)
 
 
-decompress_zip.__doc__ = decompress_zip.__doc__.format(_decompress_params)
+decompress_zip.__doc__ = decompress_zip.__doc__.format(  # type: ignore
+    _decompress_params)
 
 
-def decompress_zip_prediction(data, shape, depth, version):
+def decompress_zip_prediction(data,    # type: bytes
+                              shape,   # type: Tuple[int, int]
+                              depth,   # type: int
+                              version  # type: int
+                              ):       # type: (...) -> np.ndarray
     """
     Decompress zip (zlib) with prediction encoded data.
 
@@ -191,8 +213,9 @@ def decompress_zip_prediction(data, shape, depth, version):
     return image
 
 
-decompress_zip_prediction.__doc__ = decompress_zip_prediction.__doc__.format(
-    _decompress_params)
+decompress_zip_prediction.__doc__ = \
+    decompress_zip_prediction.__doc__.format(  # type: ignore
+        _decompress_params)
 
 
 decompressors = {
@@ -200,10 +223,15 @@ decompressors = {
     enums.Compression.rle: decompress_rle,
     enums.Compression.zip: decompress_zip,
     enums.Compression.zip_prediction: decompress_zip_prediction
-}
+}  # type: Dict[int, Callable]
 
 
-def decompress_image(data, compression, shape, depth, version):
+def decompress_image(data,         # type: bytes
+                     compression,  # type: int
+                     shape,        # type: Tuple[int, int]
+                     depth,        # type: int
+                     version       # type: int
+                     ):            # type: (...) -> np.ndarray
     """
     Decompress data with the given compression.
 
@@ -236,13 +264,19 @@ def decompress_image(data, compression, shape, depth, version):
     return decompressors[compression](data, shape, depth, version)
 
 
-def normalize_image(image, depth):
+def normalize_image(image,  # type: np.ndarray
+                    depth   # type: int
+                    ):      # type: (...) -> np.ndarray
     if depth == 1:
         image = np.packbits(image.flatten())
     return image
 
 
-def compress_raw(fd, image, depth, version):
+def compress_raw(fd,      # type: BinaryIO
+                 image,   # type: np.ndarray
+                 depth,   # type: int
+                 version  # type: int
+                 ):       # type: (...) -> None
     """
     Write a Numpy array to raw bytes in a file.
 
@@ -260,10 +294,15 @@ def compress_raw(fd, image, depth, version):
         fd.write(image)
 
 
-compress_raw.__doc__ = compress_raw.__doc__.format(_compress_params)
+compress_raw.__doc__ = compress_raw.__doc__.format(  # type: ignore
+    _compress_params)
 
 
-def compress_rle(fd, image, depth, version):
+def compress_rle(fd,      # type: BinaryIO
+                 image,   # type: np.ndarray
+                 depth,   # type: int
+                 version  # type: int
+                 ):       # type: (...) -> None
     """
     Write a Numpy array to a run length encoded stream.
 
@@ -299,10 +338,15 @@ def compress_rle(fd, image, depth, version):
     fd.seek(end)
 
 
-compress_rle.__doc__ = compress_rle.__doc__.format(_compress_params)
+compress_rle.__doc__ = compress_rle.__doc__.format(  # type: ignore
+    _compress_params)
 
 
-def compress_zip(fd, image, depth, version):
+def compress_zip(fd,      # type: BinaryIO
+                 image,   # type: np.ndarray
+                 depth,   # type: int
+                 version  # type: int
+                 ):       # type: (...) -> None
     """
     Write a Numpy array to a zip (zlib) compressed stream.
 
@@ -319,10 +363,15 @@ def compress_zip(fd, image, depth, version):
         fd.write(zlib.compress(image))
 
 
-compress_zip.__doc__ = compress_zip.__doc__.format(_compress_params)
+compress_zip.__doc__ = compress_zip.__doc__.format(  # type: ignore
+    _compress_params)
 
 
-def compress_zip_prediction(fd, image, depth, version):
+def compress_zip_prediction(fd,      # type: BinaryIO
+                            image,   # type: np.ndarray
+                            depth,   # type: int
+                            version  # type: int
+                            ):       # type: (...) -> None
     """
     Write a Numpy array to a zip (zlib) with prediction compressed
     stream.
@@ -350,8 +399,9 @@ def compress_zip_prediction(fd, image, depth, version):
     fd.write(compressor.flush())
 
 
-compress_zip_prediction.__doc__ = compress_zip_prediction.__doc__.format(
-    _compress_params)
+compress_zip_prediction.__doc__ = \
+    compress_zip_prediction.__doc__.format(  # type: ignore
+        _compress_params)
 
 
 compressors = {
@@ -359,11 +409,17 @@ compressors = {
     enums.Compression.rle: compress_rle,
     enums.Compression.zip: compress_zip,
     enums.Compression.zip_prediction: compress_zip_prediction
-}
+}  # type: Dict[int, Callable]
 
 
-def compress_image(fd, image, compression, shape, num_channels, depth,
-                   version):
+def compress_image(fd,            # type: BinaryIO
+                   image,         # type: np.ndarray
+                   compression,   # type: int
+                   shape,         # type: Tuple[int, int]
+                   num_channels,  # type: int
+                   depth,         # type: int
+                   version        # type: int
+                   ):             # type: (...) -> None
     """
     Write an image with the given compression type.
 
@@ -432,7 +488,10 @@ def compress_image(fd, image, compression, shape, num_channels, depth,
         return compressors[compression](fd, image, depth, version)
 
 
-def _make_onebit_constant(value, width, rows):
+def _make_onebit_constant(value,  # type: int
+                          width,  # type: int
+                          rows    # type: int
+                          ):      # type: (...) -> np.ndarray
     if value:
         value == 255
     else:
@@ -440,11 +499,20 @@ def _make_onebit_constant(value, width, rows):
     return np.full((width, rows), value, np.uint8)
 
 
-def _make_constant_row(value, width, depth):
+def _make_constant_row(value,  # type: int
+                       width,  # type: int
+                       depth   # type: int
+                       ):      # type: (...) -> np.ndarray
     return np.full((width,), value, dtype=color_depth_dtype_map[depth])
 
 
-def compress_constant_raw(fd, value, width, rows, depth, version):
+def compress_constant_raw(fd,      # type: BinaryIO
+                          value,   # type: int
+                          width,   # type: int
+                          rows,    # type: int
+                          depth,   # type: int
+                          version  # type: int
+                          ):       # type: (...) -> None
     """
     Write a virtual image containing a constant to a raw
     stream.
@@ -461,11 +529,18 @@ def compress_constant_raw(fd, value, width, rows, depth, version):
             fd.write(row)
 
 
-compress_constant_raw.__doc__ = compress_constant_raw.__doc__.format(
-    _compress_constant_params)
+compress_constant_raw.__doc__ = \
+    compress_constant_raw.__doc__.format(  # type: ignore
+        _compress_constant_params)
 
 
-def compress_constant_rle(fd, value, width, rows, depth, version):
+def compress_constant_rle(fd,      # type: BinaryIO
+                          value,   # type: int
+                          width,   # type: int
+                          rows,    # type: int
+                          depth,   # type: int
+                          version  # type: int
+                          ):       # type: (...) -> None
     """
     Write a virtual image containing a constant to a runlength-encoded
     stream.
@@ -489,11 +564,18 @@ def compress_constant_rle(fd, value, width, rows, depth, version):
         fd.write(packed)
 
 
-compress_constant_rle.__doc__ = compress_constant_rle.__doc__.format(
-    _compress_constant_params)
+compress_constant_rle.__doc__ = \
+    compress_constant_rle.__doc__.format(  # type: ignore
+        _compress_constant_params)
 
 
-def compress_constant_zip(fd, value, width, rows, depth, version):
+def compress_constant_zip(fd,      # type: BinaryIO
+                          value,   # type: int
+                          width,   # type: int
+                          rows,    # type: int
+                          depth,   # type: int
+                          version  # type: int
+                          ):       # type: (...) -> None
     """
     Write a virtual image containing a constant to a zip compressed
     stream.
@@ -509,12 +591,18 @@ def compress_constant_zip(fd, value, width, rows, depth, version):
         fd.write(zlib.compress(row * rows))
 
 
-compress_constant_zip.__doc__ = compress_constant_zip.__doc__.format(
-    _compress_constant_params)
+compress_constant_zip.__doc__ = \
+    compress_constant_zip.__doc__.format(  # type: ignore
+        _compress_constant_params)
 
 
-def compress_constant_zip_prediction(
-        fd, value, width, rows, depth, version):
+def compress_constant_zip_prediction(fd,      # type: BinaryIO
+                                     value,   # type: int
+                                     width,   # type: int
+                                     rows,    # type: int
+                                     depth,   # type: int
+                                     version  # type: int
+                                     ):       # type: (...) -> np.ndarray
     """
     Write a virtual image containing a constant to a zip with
     prediction compressed stream.
@@ -542,7 +630,7 @@ def compress_constant_zip_prediction(
 
 
 compress_constant_zip_prediction.__doc__ = \
-    compress_constant_zip_prediction.__doc__.format(
+    compress_constant_zip_prediction.__doc__.format(  # type: ignore
         _compress_constant_params)
 
 
@@ -551,4 +639,4 @@ constant_compressors = {
     enums.Compression.rle: compress_constant_rle,
     enums.Compression.zip: compress_constant_zip,
     enums.Compression.zip_prediction: compress_constant_zip_prediction
-}
+}  # type: Dict[int, Callable]

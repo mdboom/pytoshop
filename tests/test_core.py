@@ -17,7 +17,7 @@ class TestHeader(object):
         content = b'8BPS\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
-        h = core.Header.read(fd)
+        h = core.Header.header_read(fd)
 
         assert h.version == 2
         assert h.num_channels == 3
@@ -35,28 +35,28 @@ class TestHeader(object):
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            core.Header.read(fd)
+            core.Header.header_read(fd)
 
     def test_header_invalid_signature(self):
         content = b'8BPX\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            core.Header.read(fd)
+            core.Header.header_read(fd)
 
     def test_header_invalid_width(self):
         content = b'8BPS\0\x02\0\0\0\0\0\0\0\x03\0\0\0\0\0\0\0\x0F\0\x08\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            core.Header.read(fd)
+            core.Header.header_read(fd)
 
     def test_header_invalid_depth(self):
         content = b'8BPS\0\x02\0\0\0\0\0\0\0\x03\0\0\0\x0F\0\0\0\x0F\0\x09\0\1'
         fd = io.BytesIO(content)
         fd.seek(0)
         with pytest.raises(ValueError):
-            core.Header.read(fd)
+            core.Header.header_read(fd)
 
     def test_size_too_large(self):
         with pytest.raises(ValueError):

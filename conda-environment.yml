@@ -2,5 +2,6 @@ name: pytoshop
 dependencies:
 - cython >=0.24
 - numpy >=1.11
-- python >=3.5
+- python
 - six
+- typing
