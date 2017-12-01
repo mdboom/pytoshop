@@ -12,7 +12,11 @@ __email__ = 'mdboom@gmail.com'
 __version__ = '1.1.0'
 
 
+from typing import BinaryIO  # NOQA
+
+
 def read(fd):
+    # type: (BinaryIO) -> PsdFile
     """
     Read a PSD file from a file-like object.
 

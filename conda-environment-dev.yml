@@ -4,8 +4,9 @@ dependencies:
 - numpy >=1.11
 - pytest
 - pytest-cov
-- python >=3.5
+- python
 - sphinx >=1.4.0
 - coverage
 - flake8
 - six
+- typing

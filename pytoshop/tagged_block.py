@@ -18,11 +18,16 @@ from . import path
 from . import util
 
 
+from typing import Any, BinaryIO, Dict, Optional, Set, TYPE_CHECKING, Union  # NOQA
+if TYPE_CHECKING:
+    from . import core  # NOQA
+
+
 class _TaggedBlockMeta(type):
     """
     A metaclass that builds a mapping of subclasses.
     """
-    mapping = {}
+    mapping = {}  # type: Dict[bytes, TaggedBlock]
 
     def __new__(cls, name, parents, dct):
         new_cls = type.__new__(cls, name, parents, dct)
@@ -38,21 +43,29 @@ class _TaggedBlockMeta(type):
 
 @six.add_metaclass(_TaggedBlockMeta)
 class TaggedBlock(object):
+    _code = b'\0\0\0\0'
+
     _large_layer_info_codes = set([
         b'LMsk', b'Lr16', b'Lr32', b'Layr', b'Mt16', b'Mt32',
         b'Mtrn', b'Alph', b'FMsk', b'Ink2', b'FEid', b'FXid',
         b'PxSD', b'lnkD', b'lnk2', b'lnk3', b'lnkE'
-    ])
+    ])  # Set[bytes]
 
     @property
-    def code(self):
+    def code(self):  # type: (...) -> bytes
         return self._code
 
     def length(self, header):
+        # type: (core.Header) -> int
         return self.data_length(header)
-    length.__doc__ = docs.length
+    length.__doc__ = docs.length  # type: ignore
+
+    def data_length(self, header):
+        # type: (core.Header) -> int
+        raise NotImplementedError()
 
     def total_length(self, header, padding=1):
+        # type: (core.Header, int) -> int
         length = 8
         if self.is_long_length(self.code, header):
             length += 8
@@ -60,10 +73,11 @@ class TaggedBlock(object):
             length += 4
         length += util.pad(self.length(header), padding)
         return length
-    total_length.__doc__ = docs.total_length
+    total_length.__doc__ = docs.total_length  # type: ignore
 
     @staticmethod
     def is_long_length(code, header):
+        # type: (bytes, core.Header) -> bool
         return (
             (header.version == 2 and
              code in TaggedBlock._large_layer_info_codes)
@@ -72,6 +86,7 @@ class TaggedBlock(object):
     @classmethod
     @util.trace_read
     def read(cls, fd, header, padding=1):
+        # type: (BinaryIO, core.Header, int) -> TaggedBlock
         signature = fd.read(4)
         if signature not in (b'8BIM', b'8B64'):
             raise ValueError('Invalid signature in tagged block')
@@ -89,7 +104,8 @@ class TaggedBlock(object):
             code, length, padded_length
         )
 
-        new_cls = _TaggedBlockMeta.mapping.get(code, GenericTaggedBlock)
+        new_cls = _TaggedBlockMeta.mapping.get(  # type: ignore
+            code, GenericTaggedBlock)
         start = fd.tell()
         result = new_cls.read_data(fd, code, length, header)
         end = fd.tell()
@@ -100,8 +116,14 @@ class TaggedBlock(object):
         return result
     read.__func__.__doc__ = docs.read
 
+    @classmethod
+    def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
+        raise NotImplementedError()
+
     @util.trace_write
     def write(self, fd, header, padding=1):
+        # type: (BinaryIO, core.Header, int) -> None
         if header.version == 2 and self.code in self._large_layer_info_codes:
             fd.write(b'8B64')
         else:
@@ -126,6 +148,10 @@ class TaggedBlock(object):
         fd.write(b'\0' * (padded_length - length))
     write.__doc__ = docs.write
 
+    def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
+        raise NotImplementedError()
+
 
 class GenericTaggedBlock(TaggedBlock):
     """
@@ -133,57 +159,62 @@ class GenericTaggedBlock(TaggedBlock):
     doesn't know about.
     """
 
-    def __init__(self, code=b'', data=b''):
+    def __init__(self,
+                 code=b'',  # type: bytes
+                 data=b''   # type: bytes
+                 ):  # type: (...) -> None
         self._code = code
         self._data = data
 
     @property
-    def code(self):
+    def code(self):  # type: (...) -> bytes
         return self._code
 
     @code.setter
-    def code(self, val):
+    def code(self, val):  # type: (bytes) -> None
         if not isinstance(val, bytes) or len(val) != 4:
             raise ValueError("Code be 4-length bytes")
         self._code = val
 
     @property
-    def data(self):
+    def data(self):  # type: (...) -> bytes
         return self._data
 
     @data.setter
-    def data(self, val):
+    def data(self, val):  # type: (bytes) -> None
         if not isinstance(val, bytes):
             raise ValueError("Data must be bytes")
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         data = fd.read(length)
         util.log('data: {}', data)
         return cls(code=code, data=data)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return len(self.data)
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         fd.write(self.data)
 
 
 class UnicodeLayerName(TaggedBlock):
-    def __init__(self, name=''):
+    def __init__(self,
+                 name=''  # type: unicode
+                 ):  # type: (...) -> None
         self.name = name
 
     _code = b'luni'
 
     @property
-    def name(self):
+    def name(self):  # type: (...) -> unicode
         "The name of the layer."
         return self._name
 
     @name.setter
-    def name(self, value):
+    def name(self, value):  # type: (Union[bytes, unicode]) -> None
         if isinstance(value, bytes):
             value = value.decode('ascii')
 
@@ -193,152 +224,160 @@ class UnicodeLayerName(TaggedBlock):
         self._name = value
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         data = fd.read(length)
         name = util.decode_unicode_string(data)
         return cls(name=name)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return len(util.encode_unicode_string(self.name))
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         fd.write(util.encode_unicode_string(self.name))
 
 
 class LayerId(TaggedBlock):
-    def __init__(self, id=0):
+    def __init__(self,
+                 id=0  # type: int
+                 ):  # type: (...) -> None
         self.id = id
 
     _code = b'lyid'
 
     @property
-    def id(self):
+    def id(self):  # type: (...) -> int
         "Layer id"
         return self._id
 
     @id.setter
-    def id(self, value):
+    def id(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < 0 or value > (1 << 32)):
             raise ValueError("id must be a 32-bit integer")
         self._id = value
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         id = util.read_value(fd, 'I')
         util.log("id: {}", id)
         return cls(id=id)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return 4
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(fd, 'I', self.id)
 
 
 class LayerColor(TaggedBlock):
-    def __init__(self, color=0):
+    def __init__(self,
+                 color=0  # type: int
+                 ):  # type: (...) -> None
         self.color = color
 
     _code = b'lclr'
 
     @property
-    def color(self):
+    def color(self):  # type: (...) -> int
         "Color"
         return self._color
 
     @color.setter
-    def color(self, value):
+    def color(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < 0 or value > 7):
             raise ValueError("color must be in range 0-7")
         self._color = value
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         color, _, _, _ = util.read_value(fd, 'HHHH')
         util.log("color: {}", color)
         return cls(color=color)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return 8
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(fd, 'HHHH', self.color, 0, 0, 0)
 
 
 class LayerNameSource(TaggedBlock):
-    def __init__(self, id=0):
+    def __init__(self,
+                 id=0  # type: int
+                 ):  # type: (...) -> None
         self.id = id
 
     _code = b'lnsr'
 
     @property
-    def id(self):
+    def id(self):  # type: (...) -> int
         "The layer id of the source of the name of this layer"
         return self._id
 
     @id.setter
-    def id(self, value):
+    def id(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < 0 or value > (1 << 32)):
             raise ValueError("id must be a 32-bit integer")
         self._id = value
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         id = util.read_value(fd, 'I')
         util.log("id: {}", id)
         return cls(id=id)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return 4
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(fd, 'I', self.id)
 
 
 class _SectionDividerSetting(TaggedBlock):
     def __init__(self,
-                 type=enums.SectionDividerSetting.open,
-                 key=None,
-                 subtype=None):
+                 type=enums.SectionDividerSetting.open,  # type: int
+                 key=None,     # type: Optional[bytes]
+                 subtype=None  # type: Optional[bool]
+                 ):  # type: (...) -> None
         self.type = type
-        self.key = key
-        self.subtype = subtype
+        self._key = key
+        self._subtype = subtype
 
     @property
-    def type(self):
+    def type(self):  # type: (...) -> int
         "Section divider type. See `enums.SectionDividerSetting`."
         return self._type
 
     @type.setter
-    def type(self, value):
-        if value not in list(enums.SectionDividerSetting):
+    def type(self, value):  # type: (int) -> None
+        if value not in list(enums.SectionDividerSetting):  # type: ignore
             raise ValueError("Invalid section divider setting")
         self._type = value
 
     @property
-    def key(self):
+    def key(self):  # type: (...) -> Optional[bytes]
         "Section divider key"
         return self._key
 
     @key.setter
-    def key(self, value):
-        if value is not None and value not in list(enums.BlendMode):
+    def key(self, value):  # type: (Optional[bytes]) -> None
+        if (value is not None and
+                value not in list(enums.BlendMode)):  # type: ignore
             raise ValueError("Invalid blend mode")
         self._key = value
 
     @property
-    def subtype(self):
+    def subtype(self):  # type: (...) -> Optional[bool]
         """
         Section divider subtype. False=normal, True=Scene group,
         affects the animation timeline.
@@ -346,15 +385,15 @@ class _SectionDividerSetting(TaggedBlock):
         return self._subtype
 
     @subtype.setter
-    def subtype(self, value):
+    def subtype(self, value):  # type: (Optional[Any]) -> None
         if value is None:
             self._subtype = value
         else:
             self._subtype = bool(value)
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         end = fd.tell() + length
         type = util.read_value(fd, 'I')
         key = None
@@ -374,7 +413,7 @@ class _SectionDividerSetting(TaggedBlock):
 
         return cls(type=type, key=key, subtype=subtype)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         length = 4
         if self.subtype is not None:
             length += 12
@@ -382,8 +421,8 @@ class _SectionDividerSetting(TaggedBlock):
             length += 8
         return length
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(fd, 'I', self.type)
         if self.key is not None or self.subtype is not None:
             if self.key is None:
@@ -406,71 +445,76 @@ class NestedSectionDividerSetting(_SectionDividerSetting):
 
 class VectorMask(TaggedBlock):
     def __init__(self,
-                 version=3,
-                 invert=False,
-                 not_link=False,
-                 disable=False,
-                 path_resource=None):
+                 version=3,          # type: int
+                 invert=False,       # type: bool
+                 not_link=False,     # type: bool
+                 disable=False,      # type: bool
+                 path_resource=None  # type: Optional[path.PathResource]
+                 ):  # type: (...) -> None
         self.version = version
         self.invert = invert
         self.not_link = not_link
         self.disable = disable
+        if path_resource is None:
+            path_resource = path.PathResource()
         self.path_resource = path_resource
 
     _code = b'vmsk'
 
     @property
-    def version(self):
+    def version(self):  # type: (...) -> int
         'Vector mask block version'
         return self._version
 
     @version.setter
-    def version(self, value):
+    def version(self, value):  # type: (int) -> None
         if not isinstance(value, int):
             raise TypeError("version must be an int")
         self._version = value
 
     @property
-    def invert(self):
+    def invert(self):  # type: (...) -> bool
         "Invert mask"
         return self._invert
 
     @invert.setter
-    def invert(self, value):
+    def invert(self, value):  # type: (Any) -> None
         self._invert = bool(value)
 
     @property
-    def not_link(self):
+    def not_link(self):  # type: (...) -> bool
         "Don't link mask"
         return self._not_link
 
     @not_link.setter
-    def not_link(self, value):
+    def not_link(self, value):  # type: (Any) -> None
         self._not_link = bool(value)
 
     @property
-    def disable(self):
+    def disable(self):  # type: (...) -> bool
         "Disable mask"
         return self._disable
 
     @disable.setter
-    def disable(self, value):
+    def disable(self, value):  # type: (Any) -> None
         self._disable = bool(value)
 
     @property
     def path_resource(self):
+        # type: (...) -> path.PathResource
         "`path.PathResource` instance`"
         return self._path_resource
 
     @path_resource.setter
     def path_resource(self, value):
+        # type: (path.PathResource) -> None
         if not isinstance(value, path.PathResource):
             raise TypeError("path_resource must by a PathResource instance.")
         self._path_resource = value
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         version, flags = util.read_value(fd, 'II')
         invert, not_link, disable = util.unpack_bitflags(flags, 3)
 
@@ -487,11 +531,11 @@ class VectorMask(TaggedBlock):
             disable=disable,
             path_resource=path_resource)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return 8 + self.path_resource.length(header)
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         flags = util.pack_bitflags(self.invert, self.not_link, self.disable)
 
         util.write_value(fd, 'II', self.version, flags)
@@ -500,7 +544,9 @@ class VectorMask(TaggedBlock):
 
 
 class MetadataSetting(TaggedBlock):
-    def __init__(self, datas=None):
+    def __init__(self,
+                 datas=None  # type: Optional[Dict[bytes, bytes]]
+                 ):  # type: (...) -> None
         if datas is None:
             datas = {}
         self.datas = datas
@@ -508,11 +554,11 @@ class MetadataSetting(TaggedBlock):
     _code = b'shmd'
 
     @property
-    def datas(self):
+    def datas(self):  # type: (...) -> Dict[bytes, bytes]
         return self._datas
 
     @datas.setter
-    def datas(self, val):
+    def datas(self, val):  # type: (Dict[bytes, bytes]) -> None
         if not isinstance(val, dict):
             raise TypeError("datas must be a dict from bytes to bytes")
         for k, v in val.items():
@@ -521,8 +567,8 @@ class MetadataSetting(TaggedBlock):
         self._datas = val
 
     @classmethod
-    @util.trace_read
     def read_data(cls, fd, code, length, header):
+        # type: (BinaryIO, bytes, int, core.Header) -> TaggedBlock
         count = util.read_value(fd, 'I')
         util.log("count: {}", count)
         datas = {}
@@ -544,15 +590,15 @@ class MetadataSetting(TaggedBlock):
 
         return cls(datas=datas)
 
-    def data_length(self, header):
+    def data_length(self, header):  # type: (core.Header) -> int
         return (
             4 +
             (16 * len(self.datas)) +
             sum(util.pad(len(x), 4) for x in self.datas.values())
         )
 
-    @util.trace_write
     def write_data(self, fd, header):
+        # type: (BinaryIO, core.Header) -> None
         util.write_value(fd, 'I', len(self.datas))
         for key, data in self.datas.items():
             util.write_value(

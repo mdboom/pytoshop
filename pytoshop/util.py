@@ -17,10 +17,16 @@ import sys
 from . import enums
 
 
+from typing import Any, BinaryIO, Callable, List, Type, TYPE_CHECKING  # NOQA
+if TYPE_CHECKING:
+    import numpy as np  # NOQA
+
+
 DEBUG = False
 
 
 def read_value(fd, fmt, endian='>'):
+    # type: (BinaryIO, unicode, unicode) -> Any
     """
     Read a values from a file-like object.
 
@@ -46,8 +52,8 @@ def read_value(fd, fmt, endian='>'):
         a tuple is returned.
     """
     fmt = endian + fmt
-    size = struct.calcsize(fmt)
-    result = struct.unpack(fmt, fd.read(size))
+    size = struct.calcsize(fmt)  # type: ignore
+    result = struct.unpack(fmt, fd.read(size))  # type: ignore
     if len(result) == 1:
         return result[0]
     else:
@@ -80,6 +86,7 @@ def write_value(fd, fmt, *value, **kwargs):
 
 
 def pad(number, divisor):
+    # type: (int, int) -> int
     """
     Pads an integer up to the given divisor.
     """
@@ -89,6 +96,7 @@ def pad(number, divisor):
 
 
 def read_pascal_string(fd, padding=1):
+    # type: (BinaryIO, int) -> unicode
     """
     Read a UTF-8-encoded Pascal string from a file.
 
@@ -119,6 +127,7 @@ def read_pascal_string(fd, padding=1):
 
 
 def write_pascal_string(fd, value, padding=1):
+    # type: (BinaryIO, unicode, int) -> None
     """
     Write a UTF-8-encoded Pascal string to a file.
 
@@ -154,6 +163,7 @@ def write_pascal_string(fd, value, padding=1):
 
 
 def pascal_string_length(value, padding=1):
+    # type: (unicode, int) -> int
     """
     Calculates the total length of writing a UTF-8-encoded Pascal
     string to disk.
@@ -179,6 +189,7 @@ def pascal_string_length(value, padding=1):
 
 
 def decode_unicode_string(data):
+    # type: (bytes) -> unicode
     """
     Decode Photoshop's definition of a `Unicode String
     <https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#UnicodeStringDefine>`__.
@@ -187,14 +198,17 @@ def decode_unicode_string(data):
 
 
 def encode_unicode_string(s):
+    # type: (unicode) -> bytes
     """
     Encode Photoshop's definition of a `Unicode String
     <https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#UnicodeStringDefine>`__.
     """
-    return struct.pack('>L', len(s) + 1) + s.encode('utf_16_be') + b'\0\0'
+    return (struct.pack('>L', len(s) + 1)  # type: ignore
+            + s.encode('utf_16_be') + b'\0\0')
 
 
 def read_unicode_string(fd):
+    # type: (BinaryIO) -> unicode
     """
     Read a UTF-16-BE-encoded Unicode string (with length) from a file.
 
@@ -214,6 +228,7 @@ def read_unicode_string(fd):
 
 
 def write_unicode_string(fd, value):
+    # type: (BinaryIO, unicode) -> None
     """
     Write a UTF-16-BE-encoded Unicode string (with length) to a file.
 
@@ -229,6 +244,7 @@ def write_unicode_string(fd, value):
 
 
 def unicode_string_length(value):
+    # type: (unicode) -> int
     """
     Calculates the total length of writing a UTF-16-BE-encoded Unicode
     string (with length) to a file.
@@ -286,6 +302,7 @@ def log(msg, *args):  # pragma: no cover
 
 
 def do_byteswap(arr):
+    # type: (np.ndarray) -> np.ndarray
     """
     Return a copy of an array, byteswapped.
     """
@@ -293,6 +310,7 @@ def do_byteswap(arr):
 
 
 def ensure_bigendian(arr):
+    # type: (np.ndarray) -> np.ndarray
     """
     Ensure that a Numpy array is in big-endian order.
 
@@ -305,6 +323,7 @@ def ensure_bigendian(arr):
 
 if sys.byteorder == 'little':
     def needs_byteswap(arr):
+        # type: (np.ndarray) -> bool
         """
         Returns True if the array needs to be byteswapped.
         """
@@ -312,6 +331,7 @@ if sys.byteorder == 'little':
         return order in ('<', '=')
 else:
     def needs_byteswap(arr):
+        # type: (np.ndarray) -> bool
         """
         Returns True if the array needs to be byteswapped.
         """
@@ -320,6 +340,7 @@ else:
 
 
 def ensure_native_endian(arr):
+    # type: (np.ndarray) -> np.ndarray
     """
     Ensure that a Numpy array is in native-endian order.
 
@@ -334,6 +355,7 @@ def ensure_native_endian(arr):
 
 
 def unpack_bitflags(value, nbits):
+    # type: (int, int) -> List[bool]
     """
     Unpack a bitfield into its constituent parts.
     """
@@ -341,6 +363,7 @@ def unpack_bitflags(value, nbits):
 
 
 def pack_bitflags(*values):
+    # type: (*bool) -> int
     """
     Pack separate booleans back into a bit field.
     """
@@ -352,6 +375,7 @@ def pack_bitflags(*values):
 
 
 def assert_is_list_of(value, cls, min=None, max=None):
+    # type: (Any, Type, int, int) -> None
     """
     If value is not a list of cls instances, raises TypeError.
     """
