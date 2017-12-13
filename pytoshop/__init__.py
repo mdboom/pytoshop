@@ -9,7 +9,7 @@ from .core import PsdFile
 
 __author__ = 'Michael Droettboom'
 __email__ = 'mdboom@gmail.com'
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 
 from typing import BinaryIO  # NOQA
