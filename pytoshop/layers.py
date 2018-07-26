@@ -642,10 +642,14 @@ class LayerRecord(object):
                  visible=True,                       # type: bool
                  pixel_data_irrelevant=False,        # type: bool
                  name='',                            # type: unicode
-                 channels={},  # type: Dict[int, ChannelImageData]
-                 blocks=[],    # type: List[tagged_block.TaggedBlock]
+                 channels=None,  # type: Dict[int, ChannelImageData]
+                 blocks=None,  # type: List[tagged_block.TaggedBlock]
                  color_mode=None                     # type: Optional[int]
                  ):  # type: (...) -> None
+        if blocks is None:
+            blocks = []
+        if channels is None:
+            channels = {}
         self.top = top
         self.left = left
         self.bottom = bottom
@@ -1131,9 +1135,11 @@ class LayerInfo(object):
     A set of `LayerRecord` instances.
     """
     def __init__(self,
-                 layer_records=[],        # type: List[LayerRecord]
+                 layer_records=None,        # type: List[LayerRecord]
                  use_alpha_channel=False  # type: bool
                  ):  # type: (...) -> None
+        if layer_records is None:
+            layer_records = []
         self.layer_records = layer_records
         self.use_alpha_channel = use_alpha_channel
 
@@ -1322,10 +1328,12 @@ class LayerAndMaskInfo(object):
             self,
             layer_info=None,  # type: Optional[LayerInfo]
             global_layer_mask_info=None,  # type: Optional[GlobalLayerMaskInfo]
-            additional_layer_info=[]  # type: List[tagged_block.TaggedBlock]
+            additional_layer_info=None  # type: List[tagged_block.TaggedBlock]
             ):  # type: (...) -> None
         if layer_info is None:
             layer_info = LayerInfo()
+        if additional_layer_info is None:
+            additional_layer_info = []
         self.layer_info = layer_info
         self.global_layer_mask_info = global_layer_mask_info
         self.additional_layer_info = additional_layer_info
@@ -1438,3 +1446,4 @@ class LayerAndMaskInfo(object):
             util.write_value(fd, 'Q', end - start - 8)
         fd.seek(end)
     write.__doc__ = docs.write
+    
