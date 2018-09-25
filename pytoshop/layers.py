@@ -1446,4 +1446,3 @@ class LayerAndMaskInfo(object):
             util.write_value(fd, 'Q', end - start - 8)
         fd.seek(end)
     write.__doc__ = docs.write
-    
