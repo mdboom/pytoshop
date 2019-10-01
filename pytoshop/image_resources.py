@@ -1023,8 +1023,7 @@ class AlphaIdentifiers(ImageResourceBlock):
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
-        length = util.read_value(fd, 'I')
-        buf = fd.read(4 * length)
+        buf = fd.read(length)
         identifiers = list(np.frombuffer(buf, np.uint32))
         return cls(
             name=name, identifiers=identifiers
