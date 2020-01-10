@@ -887,7 +887,7 @@ class LayerRecord(object):
                 del self._mask_offset
                 return self._mask  # type: ignore
             else:
-                self._mask = LayerMask()
+                self._mask = LayerMask(bottom=self.bottom, right=self.right)
                 return self._mask
 
     @mask.setter
