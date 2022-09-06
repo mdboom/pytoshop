@@ -7,6 +7,9 @@ __pycache__/
 *.so
 *.c
 
+# venv
+.venv/
+
 # Distribution / packaging
 .Python
 env/
