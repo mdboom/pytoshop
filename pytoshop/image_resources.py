@@ -61,12 +61,12 @@ class ImageResourceBlock(object):
     _resource_id = -1
 
     @property
-    def name(self):  # type: (...) -> unicode
+    def name(self):  # type: (...) -> str
         "Name of image resource."
         return self._name
 
     @name.setter
-    def name(self, value):  # type: (Union[bytes, unicode]) -> None
+    def name(self, value):  # type: (Union[bytes, str]) -> None
         if isinstance(value, bytes):
             value = value.decode('ascii')
 
@@ -135,7 +135,7 @@ class ImageResourceBlock(object):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   data_length,  # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -200,7 +200,7 @@ class GenericImageResourceBlock(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -217,18 +217,18 @@ class GenericImageResourceBlock(ImageResourceBlock):
 
 class ImageResourceUnicodeString(ImageResourceBlock):
     def __init__(self,
-                 name='',  # type: unicode
-                 value=''  # type: unicode
+                 name='',  # type: str
+                 value=''  # type: str
                  ):  # type: (...) -> None
         self.name = name
         self.value = value
 
     @property
-    def value(self):  # type: (...) -> unicode
+    def value(self):  # type: (...) -> str
         return self._value
 
     @value.setter
-    def value(self, value):  # type: (unicode) -> None
+    def value(self, value):  # type: (str) -> None
         if (not isinstance(value, six.text_type) or
                 len(value) > (1 << 32)):
             raise TypeError("value must be a unicode string")
@@ -238,7 +238,7 @@ class ImageResourceUnicodeString(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -263,7 +263,7 @@ class LayersGroupInfo(ImageResourceBlock):
     Indicates which layers are locked together.
     """
     def __init__(self,
-                 name='',      # type: unicode
+                 name='',      # type: str
                  group_ids=[]  # type: List[int]
                  ):  # type: (...) -> None
         self.name = name
@@ -284,7 +284,7 @@ class LayersGroupInfo(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -306,7 +306,7 @@ class BorderInfo(ImageResourceBlock):
     Border information.
     """
     def __init__(self,
-                 name='',                 # type: unicode
+                 name='',                 # type: str
                  border_width_num=0,      # type: int
                  border_width_den=1,      # type: int
                  unit=enums.Units.inches  # type: int
@@ -361,7 +361,7 @@ class BorderInfo(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -386,7 +386,7 @@ class BackgroundColor(ImageResourceBlock):
     Background color.
     """
     def __init__(self,
-                 name='',                           # type: unicode
+                 name='',                           # type: str
                  color_space=enums.ColorSpace.rgb,  # type: int
                  color=[]                           # type: List[int]
                  ):  # type: (...) -> None
@@ -427,7 +427,7 @@ class BackgroundColor(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -460,7 +460,7 @@ class PrintFlags(ImageResourceBlock):
     Print flags.
     """
     def __init__(self,
-                 name='',                   # type: unicode
+                 name='',                   # type: str
                  labels=False,              # type: bool
                  crop_marks=False,          # type: bool
                  color_bars=False,          # type: bool
@@ -569,7 +569,7 @@ class PrintFlags(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -648,7 +648,7 @@ class GridAndGuidesInfo(ImageResourceBlock):
     Grid and guides resource.
     """
     def __init__(self,
-                 name='',      # type: unicode
+                 name='',      # type: str
                  grid_hori=0,  # type: int
                  grid_vert=0,  # type: int
                  guides=[]     # type: List[GuideResourceBlock]
@@ -702,7 +702,7 @@ class GridAndGuidesInfo(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -736,7 +736,7 @@ class GridAndGuidesInfo(ImageResourceBlock):
 
 class CopyrightFlag(ImageResourceBlock):
     def __init__(self,
-                 name='',         # type: unicode
+                 name='',         # type: str
                  copyright=False  # type: bool
                  ):  # type: (...) -> None
         self.name = name
@@ -757,7 +757,7 @@ class CopyrightFlag(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -776,7 +776,7 @@ class CopyrightFlag(ImageResourceBlock):
 
 class Url(ImageResourceBlock):
     def __init__(self,
-                 name='',  # type: unicode
+                 name='',  # type: str
                  url=b''   # type: bytes
                  ):  # type: (...) -> None
         self.name = name
@@ -799,7 +799,7 @@ class Url(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -818,7 +818,7 @@ class Url(ImageResourceBlock):
 
 class GlobalAngle(ImageResourceBlock):
     def __init__(self,
-                 name='',  # type: unicode
+                 name='',  # type: str
                  angle=0   # type: int
                  ):  # type: (...) -> None
         self.name = name
@@ -844,7 +844,7 @@ class GlobalAngle(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -863,7 +863,7 @@ class GlobalAngle(ImageResourceBlock):
 
 class EffectsVisible(ImageResourceBlock):
     def __init__(self,
-                 name='',       # type: unicode
+                 name='',       # type: str
                  visible=False  # type: bool
                  ):  # type: (...) -> None
         self.name = name
@@ -884,7 +884,7 @@ class EffectsVisible(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -903,7 +903,7 @@ class EffectsVisible(ImageResourceBlock):
 
 class DocumentSpecificIdsSeedNumber(ImageResourceBlock):
     def __init__(self,
-                 name='',      # type: unicode
+                 name='',      # type: str
                  base_value=0  # type: int
                  ):  # type: (...) -> None
         self.name = name
@@ -927,7 +927,7 @@ class DocumentSpecificIdsSeedNumber(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -950,7 +950,7 @@ class UnicodeAlphaNames(ImageResourceUnicodeString):
 
 class GlobalAltitude(ImageResourceBlock):
     def __init__(self,
-                 name='',    # type: unicode
+                 name='',    # type: str
                  altitude=0  # type: int
                  ):  # type: (...) -> None
         self.name = name
@@ -974,7 +974,7 @@ class GlobalAltitude(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -997,7 +997,7 @@ class WorkflowUrl(ImageResourceUnicodeString):
 
 class AlphaIdentifiers(ImageResourceBlock):
     def __init__(self,
-                 name='',        # type: unicode
+                 name='',        # type: str
                  identifiers=[]  # type: List[int]
                  ):  # type: (...) -> None
         self.name = name
@@ -1019,7 +1019,7 @@ class AlphaIdentifiers(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -1042,11 +1042,11 @@ class AlphaIdentifiers(ImageResourceBlock):
 
 class VersionInfo(ImageResourceBlock):
     def __init__(self,
-                 name='',                     # type: unicode
+                 name='',                     # type: str
                  version=0,                   # type: int
                  has_real_merged_data=False,  # type: bool
-                 writer='',                   # type: unicode
-                 reader='',                   # type: unicode
+                 writer='',                   # type: str
+                 reader='',                   # type: str
                  file_version=0               # type: int
                  ):  # type: (...) -> None
         self.name = name
@@ -1080,23 +1080,23 @@ class VersionInfo(ImageResourceBlock):
         self._has_real_merged_data = bool(value)
 
     @property
-    def writer(self):  # type: (...) -> unicode
+    def writer(self):  # type: (...) -> str
         "writer name"
         return self._writer
 
     @writer.setter
-    def writer(self, value):  # type: (unicode) -> None
+    def writer(self, value):  # type: (str) -> None
         if not isinstance(value, six.text_type):
             raise TypeError("writer must be a Unicode string")
         self._writer = value
 
     @property
-    def reader(self):  # type: (...) -> unicode
+    def reader(self):  # type: (...) -> str
         "reader name"
         return self._reader
 
     @reader.setter
-    def reader(self, value):  # type: (unicode) -> None
+    def reader(self, value):  # type: (str) -> None
         if not isinstance(value, six.text_type):
             raise TypeError("reader must be a Unicode string")
         self._reader = value
@@ -1117,7 +1117,7 @@ class VersionInfo(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
@@ -1149,7 +1149,7 @@ class VersionInfo(ImageResourceBlock):
 
 class PrintScale(ImageResourceBlock):
     def __init__(self,
-                 name='',                               # type: unicode
+                 name='',                               # type: str
                  style=enums.PrintScaleStyle.centered,  # type: int
                  x=0.0,                                 # type: float
                  y=0.0,                                 # type: float
@@ -1211,7 +1211,7 @@ class PrintScale(ImageResourceBlock):
     def read_data(cls,
                   fd,           # type: BinaryIO
                   resource_id,  # type: int
-                  name,         # type: unicode
+                  name,         # type: str
                   length,       # type: int
                   header        # type: core.Header
                   ):            # type: (...) -> ImageResourceBlock
