@@ -105,7 +105,7 @@ def test_layer_mask_invalid_values():
 
 
 def test_channel_image_data_invalid():
-    args = inspect.getargspec(layers.ChannelImageData.__init__)
+    args = inspect.getfullargspec(layers.ChannelImageData.__init__)
     for arg in args[0]:
         if arg in ('self', 'image', 'compression'):
             continue

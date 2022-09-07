@@ -202,19 +202,19 @@ class GenericTaggedBlock(TaggedBlock):
 
 class UnicodeLayerName(TaggedBlock):
     def __init__(self,
-                 name=''  # type: unicode
+                 name=''  # type: str
                  ):  # type: (...) -> None
         self.name = name
 
     _code = b'luni'
 
     @property
-    def name(self):  # type: (...) -> unicode
+    def name(self):  # type: (...) -> str
         "The name of the layer."
         return self._name
 
     @name.setter
-    def name(self, value):  # type: (Union[bytes, unicode]) -> None
+    def name(self, value):  # type: (Union[bytes, str]) -> None
         if isinstance(value, bytes):
             value = value.decode('ascii')
 

@@ -99,7 +99,7 @@ color_depth_dtype_map = {
     8: 'u1',
     16: '>u2',
     32: '>u4'
-}  # type: Dict[int, unicode]
+}  # type: Dict[int, str]
 
 
 color_depth_size_map = {
@@ -480,7 +480,8 @@ def compress_image(fd,            # type: BinaryIO
         ]
 
         if image.shape not in acceptable_shapes:
-            raise ValueError("Image is the wrong shape")
+            raise ValueError("Image is the wrong shape.\
+                expected {0}, got {1}".format(acceptable_shapes, image.shape))
 
         image = np.asarray(image)
         image = util.ensure_native_endian(image)
