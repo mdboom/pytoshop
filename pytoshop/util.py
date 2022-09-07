@@ -26,7 +26,7 @@ DEBUG = False
 
 
 def read_value(fd, fmt, endian='>'):
-    # type: (BinaryIO, unicode, unicode) -> Any
+    # type: (BinaryIO, str, str) -> Any
     """
     Read a values from a file-like object.
 
@@ -96,7 +96,7 @@ def pad(number, divisor):
 
 
 def read_pascal_string(fd, padding=1):
-    # type: (BinaryIO, int) -> unicode
+    # type: (BinaryIO, int) -> str
     """
     Read a UTF-8-encoded Pascal string from a file.
 
@@ -127,7 +127,7 @@ def read_pascal_string(fd, padding=1):
 
 
 def write_pascal_string(fd, value, padding=1):
-    # type: (BinaryIO, unicode, int) -> None
+    # type: (BinaryIO, str, int) -> None
     """
     Write a UTF-8-encoded Pascal string to a file.
 
@@ -163,7 +163,7 @@ def write_pascal_string(fd, value, padding=1):
 
 
 def pascal_string_length(value, padding=1):
-    # type: (unicode, int) -> int
+    # type: (str, int) -> int
     """
     Calculates the total length of writing a UTF-8-encoded Pascal
     string to disk.
@@ -189,7 +189,7 @@ def pascal_string_length(value, padding=1):
 
 
 def decode_unicode_string(data):
-    # type: (bytes) -> unicode
+    # type: (bytes) -> str
     """
     Decode Photoshop's definition of a `Unicode String
     <https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#UnicodeStringDefine>`__.
@@ -198,7 +198,7 @@ def decode_unicode_string(data):
 
 
 def encode_unicode_string(s):
-    # type: (unicode) -> bytes
+    # type: (str) -> bytes
     """
     Encode Photoshop's definition of a `Unicode String
     <https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#UnicodeStringDefine>`__.
@@ -208,7 +208,7 @@ def encode_unicode_string(s):
 
 
 def read_unicode_string(fd):
-    # type: (BinaryIO) -> unicode
+    # type: (BinaryIO) -> str
     """
     Read a UTF-16-BE-encoded Unicode string (with length) from a file.
 
@@ -228,7 +228,7 @@ def read_unicode_string(fd):
 
 
 def write_unicode_string(fd, value):
-    # type: (BinaryIO, unicode) -> None
+    # type: (BinaryIO, str) -> None
     """
     Write a UTF-16-BE-encoded Unicode string (with length) to a file.
 
@@ -244,7 +244,7 @@ def write_unicode_string(fd, value):
 
 
 def unicode_string_length(value):
-    # type: (unicode) -> int
+    # type: (str) -> int
     """
     Calculates the total length of writing a UTF-16-BE-encoded Unicode
     string (with length) to a file.

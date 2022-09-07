@@ -243,5 +243,33 @@ def test_masked_layer():
         assert layers[0].channels[0].shape == layers[0].channels[-2].shape
 
 
+def test_masked_group():
+    # reading of masked groups not yet implemented
+    filename = os.path.join(DATA_PATH, 'empty_group_masked.psb')
+    layer_record = []
+
+    # Gradient Ramp as mask
+    group_layer_1  = nested_layers.Group(name = "group1",  color_mode=enums.ColorMode.rgb)
+    group_layer_1.set_channel(enums.ColorChannel.user_layer_mask, np.tile(np.linspace(0, 65000, 32), [32, 1]).astype(np.uint16))
+
+
+    image_layer_2 = nested_layers.Image("Image")
+    image_channel = np.full((32, 32), 65000 ,np.uint16)
+    image_layer_2.channels[0] = image_channel
+    image_layer_2.channels[1] = image_channel
+    image_layer_2.channels[2] = image_channel
+
+    group_layer_1.layers.append(image_layer_2)
+    layer_record.append(group_layer_1)
+
+    output = nested_layers.nested_layers_to_psd(
+        layers=layer_record,
+        color_mode=enums.ColorMode.rgb
+    )
+
+    with open(filename, "wb") as file:
+        output.write(file)
+
+
 if __name__ == '__main__':
     test_proxy(1)

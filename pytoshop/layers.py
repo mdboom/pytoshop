@@ -371,7 +371,7 @@ class LayerMask(object):
     @util.trace_read
     def read(cls, fd):  # type: (BinaryIO) -> LayerMask
         length = util.read_value(fd, 'I')
-        d = {}  # type: Dict[unicode, Any]
+        d = {}  # type: Dict[str, Any]
         end = fd.tell() + length
         util.log("length: {}, end: {}", length, end)
 
@@ -641,7 +641,7 @@ class LayerRecord(object):
                  transparency_protected=False,       # type: bool
                  visible=True,                       # type: bool
                  pixel_data_irrelevant=False,        # type: bool
-                 name='',                            # type: unicode
+                 name='',                            # type: str
                  channels=None,  # type: Dict[int, ChannelImageData]
                  blocks=None,  # type: List[tagged_block.TaggedBlock]
                  color_mode=None                     # type: Optional[int]
@@ -705,7 +705,8 @@ class LayerRecord(object):
     def bottom(self, value):  # type: (int) -> None
         if (not isinstance(value, int) or
                 value < -(1 << 31) or value > (1 << 31)):
-            raise ValueError("bottom must be a 32-bit integer")
+            raise ValueError("bottom must be a 32-bit integer,\
+                got {0}".format(value))
         self._bottom = value
 
     @property
@@ -779,12 +780,12 @@ class LayerRecord(object):
         self._pixel_data_irrelevant = bool(value)
 
     @property
-    def name(self):  # type: (...) -> unicode
+    def name(self):  # type: (...) -> str
         "Name of layer"
         return self._name
 
     @name.setter
-    def name(self, value):  # type: (Union[bytes, unicode]) -> None
+    def name(self, value):  # type: (Union[bytes, str]) -> None
         if isinstance(value, bytes):
             value = value.decode('ascii')
 
@@ -887,7 +888,7 @@ class LayerRecord(object):
                 del self._mask_offset
                 return self._mask  # type: ignore
             else:
-                self._mask = LayerMask()
+                self._mask = LayerMask(bottom=self.bottom, right=self.right)
                 return self._mask
 
     @mask.setter

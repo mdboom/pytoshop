@@ -51,7 +51,7 @@ def test_image_invalid_size():
 
 
 def test_channels_with_other_parameters():
-    args = inspect.getargspec(image_data.ImageData.__init__)
+    args = inspect.getfullargspec(image_data.ImageData.__init__)
     for arg in args[0]:
         if arg in ('self', 'channels', 'compression'):
             continue
